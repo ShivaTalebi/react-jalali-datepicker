@@ -1,0 +1,7 @@
+src/**/*.test.*
+src/**/*.spec.*
+*.log
+.git
+.github
+.vscode
+.idea

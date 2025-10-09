@@ -51,7 +51,7 @@
     "access": "public"
   },
   "dependencies": {
-    "zaman": "^3.0.0",
-    "react-date-object": "^2.1.7"
+    "zaman": "^2.1.1",
+    "react-date-object": "^2.1.9"
   }
 }

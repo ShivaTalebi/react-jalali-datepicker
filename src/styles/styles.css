@@ -1,0 +1,274 @@
+/* Placeholder; بعداً استایل واقعی تقویم رو می‌ذاریم */
+[data-locale="fa"] {
+  direction: rtl;
+}
+[data-locale="en"] {
+  direction: ltr;
+}
+
+/* ظرف پاپ‌آپ: کامپوزیت برای نرم بودن جابه‌جایی و جلوگیری از پرش */
+.calendar-header {
+  min-width: 320px;
+  max-width: 100vw;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.3), 0 8px 12px 6px rgba(0, 0, 0, 0.15);
+  overflow: visible; /* اسکرول روی پاپ‌آپ نخواهیم داشت */
+  will-change: transform, top, left; /* کمک به GPU compositing */
+  contain: layout paint; /* reflow محدود به خود باکس */
+}
+
+/* بالای پاپ‌آپ */
+.header-main-div {
+  padding: 0 10px;
+}
+.header-label {
+  padding: 8px 12px 0;
+  color: var(--grey1);
+  font-size: 16px;
+  line-height: 25px;
+  font-weight: 500;
+  text-align: justify;
+}
+.selected-info-div {
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid #eef2f7;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.selected-info-pill {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 40px;
+  color: var(--blue5);
+}
+.blue-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+/* انتخاب ماه/سال */
+.header-select-div {
+  display: flex;
+  gap: 12px;
+  padding: 0 12px;
+  justify-content: space-between;
+}
+.select-elm {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  height: 42px;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  background-position: left 12px center;
+  padding: 8px 12px 8px 36px;
+  font-size: 14px;
+  line-height: 20px;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.select-elm option {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--blue5);
+}
+.select-elm.select-month {
+  /* ماه سمت راست (RTL) */
+  background-position: left 12px center;
+  padding: 10px 8px 10px 16px;
+  text-align: right;
+}
+.select-elm.select-year {
+  /* سال وسط‌چین */
+  background-position: left 12px center;
+  text-align: center;
+}
+
+/* بدنه‌ی تقویم (خود Zaman) */
+.zcal-custom .zcal-body [role="gridcell"] button,
+.zcal-custom .zcal-body button[aria-label*="day"],
+.zcal-custom .zcal-body .day {
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  overflow: hidden;
+  transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+  outline: none;
+}
+
+/* انتخاب‌شده به صورت حلقه */
+.zcal-custom .zcal-body button[aria-selected="true"],
+.zcal-custom .zcal-body button[aria-pressed="true"],
+.zcal-custom .zcal-body [data-selected="true"],
+.zcal-custom .zcal-body .is-selected,
+.zcal-custom .zcal-body .selected {
+  background: transparent !important;
+  color: var(--zcal-accent, var(--blue3)) !important;
+  border-radius: 50px !important;
+  border-color: var(--blue3);
+}
+
+/* Hover */
+.zcal-custom
+  .zcal-body
+  [role="gridcell"]
+  button:not([aria-selected="true"]):not(:disabled):hover,
+.zcal-custom
+  .zcal-body
+  [role="gridcell"]
+  button:not([aria-selected="true"]):not(:disabled):hover
+  > * {
+  background: var(--zcal-hover-fill) !important;
+  box-shadow: none !important;
+  border-radius: 50px !important;
+}
+
+/* امروزِ انتخاب‌نشده */
+.zcal-custom .zcal-body [data-today="true"] button:not([aria-selected="true"]) {
+  border-radius: 50px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+/* سر داخلی Zaman را با CSS هم پنهان کن (برای حذف reflow اضافی) */
+.zcal-custom .zcal-body > div > div:first-child {
+  display: none !important;
+}
+
+/* ارتفاع/عرض پیشفرضِ امن برای بدنه‌ی تقویم (کلاس‌های داخلی Zaman) */
+.css-137m4ck {
+  height: 325px !important;
+  border: 0 !important;
+  width: 318px !important;
+}
+
+/* اگر انتخاب اولیه نداریم، هر استایل selected را خنثی کن */
+.zcal-custom.no-initial-select
+  .zcal-body
+  [role="gridcell"]
+  button[aria-selected="true"],
+.zcal-custom.no-initial-select .zcal-body button[aria-selected="true"],
+.zcal-custom.no-initial-select .zcal-body [data-selected="true"],
+.zcal-custom.no-initial-select .zcal-body .selected,
+.zcal-custom.no-initial-select .zcal-body .is-selected,
+.zcal-custom.no-initial-select .zcal-body button[aria-pressed="true"] {
+  background: transparent !important;
+  color: inherit !important;
+  box-shadow: none !important;
+  border-radius: 9999px !important;
+  border-color: #fff !important;
+}
+.zcal-custom.no-initial-select
+  .zcal-body
+  [role="gridcell"]
+  button[aria-selected="true"]
+  > *,
+.zcal-custom.no-initial-select .zcal-body button[aria-selected="true"] > * {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 9999px !important;
+}
+
+/* تایپوگرافی‌های Zaman */
+.zm-DaysButton {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 18px !important;
+  color: var(--blue5) !important;
+}
+.css-qmbtae {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 22px !important;
+  color: var(--blue5) !important;
+}
+
+/* فوتر */
+.footer-div {
+  display: flex;
+  gap: 30px;
+  padding: 0 8px 16px 20px;
+  justify-content: end;
+}
+.footer-btn {
+  font-size: 16px;
+  line-height: 25px;
+  padding: 2px;
+  color: var(--blue3);
+}
+
+/* ===== Custom select arrow (no external asset) ===== */
+
+/* رنگ فلش قابل تم‌کردن */
+:root {
+  --select-arrow-color: currentColor; /* می‌تونی هر رنگ دلخواه بدی */
+}
+
+/* ریست ظاهری و فضای لازم برای فلش */
+.select-elm {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  background-color: #fff; /* هرچی قبلاً داشتی */
+  border: 1px solid #d1d5db; /* هرچی قبلاً داشتی */
+  border-radius: 8px; /* هرچی قبلاً داشتی */
+  height: 36px; /* هماهنگ با UI خودت */
+  line-height: 36px;
+  padding: 0 40px 0 12px; /* فضای سمت فلش (RTL بعداً عوض می‌کنیم) */
+  font: inherit;
+  color: inherit;
+
+  /* فلش: SVG inline با رنگ متغیر */
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>\
+<polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  background-position: right 12px center; /* پیش‌فرض LTR */
+}
+
+/* فوکوس/هاور */
+.select-elm:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.select-elm:hover {
+  border-color: #b4bccc;
+}
+
+/* حالت غیرفعال */
+.select-elm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* پشتیبانی RTL: وقتی ریشهٔ پاپ‌آپ RTL است، فلش به چپ می‌رود و padding معکوس می‌شود */
+.zcal-custom[dir="rtl"] .select-elm {
+  padding: 0 12px 0 40px; /* فضای فلش سمت چپ */
+  background-position: left 12px center;
+}
+
+@media (prefers-color-scheme: dark) {
+  .zcal-custom .select-elm {
+    background-color: #111827;
+    border-color: #374151;
+    color: #e5e7eb;
+  }
+  .zcal-custom .select-elm:focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
+  }
+}
