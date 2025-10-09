@@ -1,0 +1,57 @@
+{
+  "name": "react-jalali-datepicker",
+  "version": "0.0.2",
+  "description": "A reusable Jalali/Persian calendar component for React.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "keywords": [
+    "react",
+    "calendar",
+    "jalali",
+    "persian",
+    "datepicker"
+  ],
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.26",
+    "@types/react-dom": "^18.3.7",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shivatalebi/react-jalali-datepicker"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "zaman": "^3.0.0",
+    "react-date-object": "^2.1.7"
+  }
+}
