@@ -1,6 +1,6 @@
 {
   "name": "react-jalali-datepicker",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A reusable Jalali/Persian calendar component for React.",
   "license": "MIT",
   "type": "module",
