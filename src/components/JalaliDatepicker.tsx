@@ -11,14 +11,22 @@ import {
 import { createPortal } from "react-dom";
 import { Calendar, CalendarProvider } from "zaman";
 import DateObject from "react-date-object";
-import persian from "react-date-object/calendars/persian";
-import persian_fa from "react-date-object/locales/persian_fa";
+import persian from "react-date-object/calendars/persian.js";
+import persian_fa from "react-date-object/locales/persian_fa.js";
+import { ComboSelect, Option as CSOption } from "./ComboSelect";
 import "../styles/styles.css";
 
 /* ---------------- types ---------------- */
 type AnchorRef =
   | React.RefObject<HTMLElement>
   | React.MutableRefObject<HTMLElement | null>;
+
+export type JalaliDisabledDateRange = {
+  /** First disabled day (inclusive). */
+  from: Date;
+  /** Last disabled day (inclusive). */
+  to: Date;
+};
 
 export type JalaliDatepickerProps = {
   open: boolean;
@@ -33,26 +41,34 @@ export type JalaliDatepickerProps = {
   onConfirm: (d: Date | null) => void;
   onClose: () => void;
 
-  // helpers
-  beginDate?: Date | string;
-  beginAutoConfirm?: boolean;
-  beginCalendar?: "jalali" | "gregorian";
-
   // UI
-  label?: "از تاریخ" | "تا تاریخ";
+  /** Optional per-instance label. Pass an empty string or null to hide it. */
+  label?: React.ReactNode;
   locale?: "fa" | "en";
   className?: string;
   style?: React.CSSProperties;
+  /** محل اختیاری Portal؛ پیش‌فرض document.body است. */
+  portalContainer?: HTMLElement | null;
+
+  /**
+   * نمایش دکمه‌های تأیید و انصراف.
+   * false: انتخاب روز فوراً مقدار را ارسال می‌کند و تقویم بسته می‌شود.
+   * true: مقدار فقط با تأیید ارسال می‌شود و انصراف state مقصد را تغییر نمی‌دهد.
+   * @default false
+   */
+  showActionButtons?: boolean;
+
+  /** Date ranges that cannot be selected. Both boundaries are included. */
+  disabledDateRanges?: readonly JalaliDisabledDateRange[];
 
   // i18n
   labels?: {
     titleFrom?: string;
     titleTo?: string;
-    today?: string;
-    fromBeginning?: string;
     confirm?: string;
     cancel?: string;
     chooseDate?: string;
+    today?: string;
   };
 };
 
@@ -75,43 +91,6 @@ const MONTHS = [
 type Placement = "bottom" | "top" | "left" | "right" | "fit";
 
 /* ---------------- helpers ---------------- */
-function toEnDigits(s: string) {
-  const fa = "۰۱۲۳۴۵۶۷۸۹";
-  const ar = "٠١٢٣٤٥٦٧٨٩";
-  return s
-    .replace(/[۰-۹]/g, (d) => String(fa.indexOf(d)))
-    .replace(/[٠-٩]/g, (d) => String(ar.indexOf(d)));
-}
-function splitYMD(s: string): [number, number, number] | null {
-  const p = s.split(/[^0-9]/g).filter(Boolean);
-  if (p.length < 3) return null;
-  const [y, m, d] = p.map((x) => parseInt(x, 10));
-  return !y || !m || !d ? null : [y, m, d];
-}
-function inferCalendar(y: number): "jalali" | "gregorian" {
-  return y >= 1200 && y < 1700 ? "jalali" : "gregorian";
-}
-function parseInputToDate(
-  input?: Date | string,
-  prefer?: "jalali" | "gregorian"
-): Date | null {
-  if (!input) return null;
-  if (input instanceof Date) return input;
-
-  const norm = toEnDigits(String(input).trim());
-  const ymd = splitYMD(norm);
-  if (!ymd) {
-    const d = new Date(norm);
-    return isNaN(d.getTime()) ? null : d;
-  }
-  const [y, m, d] = ymd;
-  const cal = prefer ?? inferCalendar(y);
-  if (cal === "jalali") {
-    const jo = new DateObject({ calendar: persian, year: y, month: m, day: d });
-    return jo.toDate();
-  }
-  return new Date(y, (m || 1) - 1, d || 1);
-}
 function formatSelectedHeader(d: Date | null) {
   if (!d) return "";
   const weekdayFull = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
@@ -125,6 +104,15 @@ function formatSelectedHeader(d: Date | null) {
   return `${weekdayFirst}، ${j.day} ${monthName}`;
 }
 
+function isSameDay(a: Date | null, b: Date | null) {
+  if (!a || !b) return false;
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 /* ---------------- component ---------------- */
 function JalaliDatepicker(props: JalaliDatepickerProps) {
   const {
@@ -136,36 +124,53 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     value,
     defaultValue = null,
     onChange,
-    // options
-    beginDate,
-    beginAutoConfirm = true,
-    beginCalendar,
     // ui
     label,
     locale = "fa",
     className,
     style,
+    portalContainer,
     labels: L = {},
+    showActionButtons = false,
+    disabledDateRanges = [],
   } = props;
 
   const t = {
     titleFrom: L.titleFrom ?? "از تاریخ",
     titleTo: L.titleTo ?? "تا تاریخ",
-    today: L.today ?? "امروز",
-    fromBeginning: L.fromBeginning ?? "از ابتدا",
     confirm: L.confirm ?? "تایید",
     cancel: L.cancel ?? "انصراف",
     chooseDate: L.chooseDate ?? "انتخاب تاریخ",
+    today: L.today ?? "امروز",
   };
+  const resolvedLabel =
+    typeof label === "string" && label === "از تاریخ"
+      ? t.titleFrom
+      : typeof label === "string" && label === "تا تاریخ"
+        ? t.titleTo
+        : label;
 
-  const [draft, setDraft] = useState<Date | null>(value ?? defaultValue);
+  // مقدار «کامیت‌شده» (نمایش بیرونی) و درفت (نمایش داخل پاپ‌آپ)
+  const [draft, setDraft] = useState<Date | null>(
+    value ?? defaultValue ?? new Date()
+  );
 
-  // sync controlled value
-  useEffect(() => {
-    if (value !== undefined) setDraft(value);
+  // هر بار والد value را عوض کند، درفت را هم با آن همگام کنیم (چون آن مقدارِ کامیت‌شده است)
+  useLayoutEffect(() => {
+    if (value !== undefined) setDraft(value ?? null);
   }, [value]);
 
-  // visible year/month
+  // وقتی پاپ‌آپ باز می‌شود، مقدار کامیت‌شده فعلی را ذخیره کنیم تا بتوانیم روی Cancel/Close برگردانیم
+  const committedOnOpenRef = useRef<Date | null>(null);
+  const wasOpenRef = useRef(false);
+  useLayoutEffect(() => {
+    if (open && !wasOpenRef.current) {
+      committedOnOpenRef.current = value ?? defaultValue ?? null;
+    }
+    wasOpenRef.current = open;
+  }, [open, value, defaultValue]);
+
+  // visible year/month (بر اساس value/defaultValue یا تاریخ جاری)
   const initDO = useMemo(
     () =>
       new DateObject({
@@ -180,6 +185,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
 
   const popRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const calendarKeyboardSelectionRef = useRef(false);
 
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -205,6 +211,15 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     return Array.from({ length: e - s + 1 }, (_, i) => s + i);
   }, []);
 
+  const monthOptions: CSOption[] = useMemo(
+    () => MONTHS.map((m, i) => ({ id: i + 1, label: m, value: String(i + 1) })),
+    []
+  );
+  const yearOptions: CSOption[] = useMemo(
+    () => years.map((y) => ({ id: y, label: String(y), value: String(y) })),
+    [years]
+  );
+
   const viewAnchorDate = useMemo(
     () =>
       new DateObject({
@@ -217,36 +232,127 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     [viewYear, viewMonth]
   );
 
+  const draftMatchesView = useMemo(() => {
+    if (!draft) return false;
+    const draftDate = new DateObject({
+      date: draft,
+      calendar: persian,
+      locale: persian_fa,
+    });
+    return draftDate.year === viewYear && draftDate.month.number === viewMonth;
+  }, [draft, viewYear, viewMonth]);
+
+  // The month/year controls own the visible grid. Keep the committed draft
+  // selected only while it belongs to that grid; otherwise use the first day
+  // merely as Zaman's view anchor and hide its implicit selection.
   const calendarDefault = useMemo(
-    () => (draft ? draft : viewAnchorDate),
-    [draft, viewAnchorDate]
+    () => (draftMatchesView && draft ? draft : viewAnchorDate),
+    [draftMatchesView, draft, viewAnchorDate]
   );
   const selectedLabel = useMemo(() => formatSelectedHeader(draft), [draft]);
+  const today = useMemo(() => new Date(), [open]);
+  const todayObject = useMemo(
+    () =>
+      new DateObject({
+        date: today,
+        calendar: persian,
+        locale: persian_fa,
+      }),
+    [today]
+  );
+  const showTodayShortcut =
+    !isSameDay(draft, today) ||
+    viewYear !== todayObject.year ||
+    viewMonth !== todayObject.month.number;
+  const normalizedDisabledRanges = useMemo(
+    () =>
+      disabledDateRanges.flatMap(({ from, to }) => {
+        const fromTime = new Date(from).setHours(0, 0, 0, 0);
+        const toTime = new Date(to).setHours(23, 59, 59, 999);
+        if (!Number.isFinite(fromTime) || !Number.isFinite(toTime)) return [];
+        return [
+          {
+            from: Math.min(fromTime, toTime),
+            to: Math.max(fromTime, toTime),
+          },
+        ];
+      }),
+    [disabledDateRanges]
+  );
+  const isDateDisabled = useCallback(
+    (date: Date | null) => {
+      if (!date) return false;
+      const time = new Date(date).setHours(12, 0, 0, 0);
+      return normalizedDisabledRanges.some(
+        (range) => time >= range.from && time <= range.to
+      );
+    },
+    [normalizedDisabledRanges]
+  );
+  const selectDay = useCallback(
+    (next: Date | null) => {
+      if (isDateDisabled(next)) return;
+      if (next) {
+        const selectedDate = new DateObject({
+          date: next,
+          calendar: persian,
+          locale: persian_fa,
+        });
+        setViewYear(selectedDate.year as number);
+        setViewMonth(selectedDate.month.number);
+      }
+      setDraft(next);
+      if (!showActionButtons) {
+        onChange?.(next);
+        onConfirm(next);
+        committedOnOpenRef.current = next;
+        onClose();
+      }
+    },
+    [isDateDisabled, showActionButtons, onChange, onConfirm, onClose]
+  );
 
   /* portal host */
   useLayoutEffect(() => {
     if (!open) return;
-    const anchorEl = (anchorRef as any)?.current as HTMLElement | null;
-    const inner = anchorEl?.closest('[data-portal-root="inner"]');
-    const anyHost = anchorEl?.closest("[data-portal-root]");
-    const host = (inner || anyHost || document.body) as HTMLElement;
+    const host = portalContainer ?? document.body;
     setPortalEl(host);
 
     if (lastPosRef.current) setPos(lastPosRef.current);
+    placementRef.current = null;
     setFit(null);
-  }, [open, anchorRef]);
+  }, [open, portalContainer]);
 
-  /* sync on open */
-  useEffect(() => {
-    if (!open) return;
-    const cur = new DateObject({
-      date: value ?? defaultValue ?? new Date(),
-      calendar: persian,
-      locale: persian_fa,
-    });
-    setDraft(value ?? defaultValue ?? null);
-    setViewYear(cur.year as number);
-    setViewMonth(cur.month.number);
+  /* Sync the initial open separately from later controlled value changes. */
+  const openInitializedRef = useRef(false);
+  const implicitSelectionRef = useRef<Date | null>(null);
+  useLayoutEffect(() => {
+    if (!open) {
+      openInitializedRef.current = false;
+      implicitSelectionRef.current = null;
+      return;
+    }
+
+    const isInitialOpen = !openInitializedRef.current;
+    openInitializedRef.current = true;
+    if (!isInitialOpen && value === undefined) return;
+
+    const useImplicitToday =
+      isInitialOpen && value == null && defaultValue == null;
+    const next = isInitialOpen
+      ? value ?? defaultValue ?? new Date()
+      : value ?? null;
+    implicitSelectionRef.current = useImplicitToday ? next : null;
+    setDraft(next);
+    if (next || isInitialOpen) {
+      const cur = new DateObject({
+        date: next ?? new Date(),
+        calendar: persian,
+        locale: persian_fa,
+      });
+      setViewYear(cur.year as number);
+      setViewMonth(cur.month.number);
+    }
   }, [open, value, defaultValue]);
 
   /* calc position + fit  */
@@ -258,130 +364,182 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       const hostEl = portalEl;
       if (!anchorEl || !hostEl) return;
 
-      const spacing = 10;
+      const rootRem =
+        Number.parseFloat(
+          window.getComputedStyle(document.documentElement).fontSize
+        ) || 16;
+      const spacing = 0.75 * rootRem;
       const isBodyHost = hostEl === document.body;
 
-      const hostRect = hostEl.getBoundingClientRect();
       const aRect = anchorEl.getBoundingClientRect();
-      const scrollTop = isBodyHost ? window.pageYOffset : hostEl.scrollTop;
-      const scrollLeft = isBodyHost ? window.pageXOffset : hostEl.scrollLeft;
 
-      const a = {
-        left: aRect.left + scrollLeft - hostRect.left,
-        top: aRect.top + scrollTop - hostRect.top,
-        width: aRect.width,
-        height: aRect.height,
-      };
+      const vv = (window as any).visualViewport as VisualViewport | undefined;
+      const vw = (vv?.width ?? window.innerWidth) | 0;
+      const vh = (vv?.height ?? window.innerHeight) | 0;
+      const vOffLeft = (vv?.offsetLeft ?? 0) | 0;
+      const vOffTop = (vv?.offsetTop ?? 0) | 0;
 
-      const hostW = isBodyHost ? window.innerWidth : hostEl.clientWidth;
-      const hostH = isBodyHost ? window.innerHeight : hostEl.clientHeight;
+      let aLeft: number, aTop: number, aRight: number, aBottom: number;
+      if (isBodyHost) {
+        aLeft = Math.round(vOffLeft + aRect.left);
+        aTop = Math.round(vOffTop + aRect.top);
+        aRight = Math.round(vOffLeft + aRect.right);
+        aBottom = Math.round(vOffTop + aRect.bottom);
+      } else {
+        const hostRect = hostEl.getBoundingClientRect();
+        const hScrollL = (hostEl as HTMLElement).scrollLeft;
+        const hScrollT = (hostEl as HTMLElement).scrollTop;
+        aLeft = Math.round(aRect.left - hostRect.left + hScrollL);
+        aTop = Math.round(aRect.top - hostRect.top + hScrollT);
+        aRight = Math.round(aRect.right - hostRect.left + hScrollL);
+        aBottom = Math.round(aRect.bottom - hostRect.top + hScrollT);
+      }
 
-      const nextWidth = Math.max(a.width, 320);
-      if (popupWidth !== nextWidth) setPopupWidth(nextWidth);
+      const hostW = isBodyHost ? vw : (hostEl as HTMLElement).clientWidth;
+      const hostH = isBodyHost ? vh : (hostEl as HTMLElement).clientHeight;
+
+      // Keep the calendar visually identical at every breakpoint. The Zaman
+      // The grid is designed around 20rem, so wider anchors must not stretch only
+      // the popup shell and create an extra empty strip on the left.
+      const availableWidth = Math.max(0, hostW - 2 * spacing);
+      const nextWidth = 20 * rootRem;
+      setPopupWidth((current) =>
+        current === nextWidth ? current : nextWidth
+      );
 
       const rect = popEl?.getBoundingClientRect();
       const approxWidth =
-        rect?.width && rect.width > 50 ? rect.width : lastSizeRef.current.w;
+        popEl?.offsetWidth && popEl.offsetWidth > 50
+          ? popEl.offsetWidth
+          : 20 * rootRem;
       const approxHeight =
-        rect?.height && rect.height > 100 ? rect.height : lastSizeRef.current.h;
+        popEl?.offsetHeight && popEl.offsetHeight > 80
+          ? popEl.offsetHeight
+          : 27.5 * rootRem;
 
-      const canBottom = hostH - (a.top + a.height) - spacing >= approxHeight;
-      const canTop = a.top - spacing >= approxHeight;
-      const canRight = hostW - (a.left + a.width) - spacing >= approxWidth;
-      const canLeft = a.left - spacing >= approxWidth;
+      const spaceBottom =
+        hostH - (isBodyHost ? aBottom - vOffTop : aBottom) - spacing;
+      const spaceTop = (isBodyHost ? aTop - vOffTop : aTop) - spacing;
+      const spaceRight =
+        hostW - (isBodyHost ? aRight - vOffLeft : aRight) - spacing;
+      const spaceLeft = (isBodyHost ? aLeft - vOffLeft : aLeft) - spacing;
+
+      const canBottom = spaceBottom >= approxHeight;
+      const canTop = spaceTop >= approxHeight;
+      const canRight = spaceRight >= approxWidth;
+      const canLeft = spaceLeft >= approxWidth;
+      const widthFits = availableWidth >= approxWidth;
 
       if (
         forceRecomputePlacement ||
         !placementRef.current ||
         placementRef.current === "fit"
       ) {
-        if (canBottom) placementRef.current = "bottom";
-        else if (canTop) placementRef.current = "top";
-        else if (canRight) placementRef.current = "right";
-        else if (canLeft) placementRef.current = "left";
-        else placementRef.current = "fit";
+        const candidates: Array<{
+          dir: Placement;
+          space: number;
+          ok: boolean;
+        }> = [
+          { dir: "bottom", space: spaceBottom, ok: canBottom && widthFits },
+          { dir: "top", space: spaceTop, ok: canTop && widthFits },
+          { dir: "right", space: spaceRight, ok: canRight },
+          { dir: "left", space: spaceLeft, ok: canLeft },
+        ];
+        const okOnes = candidates
+          .filter((c) => c.ok)
+          .sort((a, b) => b.space - a.space);
+        placementRef.current = okOnes.length ? okOnes[0].dir : "fit";
       }
 
-      let left = a.left;
-      let top = a.top + a.height + spacing;
+      const clamp = (v: number, min: number, max: number) =>
+        Math.min(Math.max(v, min), max);
+      const baseLeft = isBodyHost ? vOffLeft : 0;
+      const baseTop = isBodyHost ? vOffTop : 0;
+      const minLeft = baseLeft + spacing;
+      const maxLeft = baseLeft + hostW - spacing - approxWidth;
+      const minTop = baseTop + spacing;
+      const maxTop = baseTop + hostH - spacing - approxHeight;
+
+      let left = aLeft;
+      let top = aBottom + spacing;
       let fitState: { enabled: boolean; scale: number } | null = null;
 
       switch (placementRef.current) {
         case "bottom":
-          left = clamp(left, spacing, hostW - spacing - approxWidth);
-          top = a.top + a.height + spacing;
+          left = clamp(aLeft, minLeft, maxLeft);
+          top = clamp(aBottom + spacing, minTop, maxTop);
           break;
         case "top":
-          left = clamp(left, spacing, hostW - spacing - approxWidth);
-          top = a.top - spacing - approxHeight;
+          left = clamp(aLeft, minLeft, maxLeft);
+          top = clamp(aTop - spacing - approxHeight, minTop, maxTop);
           break;
         case "right":
-          left = a.left + a.width + spacing;
-          top = clamp(a.top, spacing, hostH - spacing - approxHeight);
+          left = clamp(aRight + spacing, minLeft, maxLeft);
+          top = clamp(aTop, minTop, maxTop);
           break;
         case "left":
-          left = a.left - spacing - approxWidth;
-          top = clamp(a.top, spacing, hostH - spacing - approxHeight);
+          left = clamp(aLeft - spacing - approxWidth, minLeft, maxLeft);
+          top = clamp(aTop, minTop, maxTop);
           break;
         case "fit":
         default: {
           const availW = hostW - 2 * spacing;
-          const availH = hostH - 2 * spacing;
+          const availH = Math.max(spaceBottom, spaceTop);
           const scaleW = availW / approxWidth;
           const scaleH = availH / approxHeight;
-          const scale = Math.max(0.72, Math.min(1, Math.min(scaleW, scaleH)));
-          const fitW = approxWidth * scale;
+          const scale = Math.max(0.1, Math.min(1, Math.min(scaleW, scaleH)));
           const fitH = approxHeight * scale;
-          left = Math.round((hostW - fitW) / 2);
-          top = Math.round((hostH - fitH) / 2);
+          // With a top-center transform origin, center the unscaled box; the
+          // scaled visual box then remains centered in the viewport.
+          left = Math.round(baseLeft + (hostW - approxWidth) / 2);
+          const placeBelow = spaceBottom >= spaceTop;
+          top = placeBelow
+            ? Math.round(aBottom + spacing)
+            : Math.round(aTop - spacing - fitH);
           fitState = { enabled: true, scale };
           break;
         }
       }
 
       const np = { top: Math.round(top), left: Math.round(left) };
-      if (!pos || pos.top !== np.top || pos.left !== np.left) setPos(np);
+      setPos((current) =>
+        current?.top === np.top && current?.left === np.left ? current : np
+      );
       lastPosRef.current = np;
 
-      if (fitState) setFit(fitState);
-      else if (fit?.enabled) setFit({ enabled: false, scale: 1 });
+      setFit((current) => {
+        const next = fitState ?? { enabled: false, scale: 1 };
+        return current?.enabled === next.enabled && current?.scale === next.scale
+          ? current
+          : next;
+      });
 
-      if (rect && rect.height > 100 && rect.width > 50) {
+      if (popEl && popEl.offsetHeight > 80 && popEl.offsetWidth > 50) {
         lastSizeRef.current = {
-          w: Math.round(rect.width),
-          h: Math.round(rect.height),
+          w: Math.round(popEl.offsetWidth),
+          h: Math.round(popEl.offsetHeight),
         };
       }
-
-      function clamp(v: number, min: number, max: number) {
-        return Math.min(Math.max(v, min), max);
-      }
     },
-    // ✅ فقط وابستگی‌های لازم؛ stateهایی که داخلش setState می‌شوند اینجا نیستند
     [open, anchorRef, portalEl]
   );
 
   /* initial positioning */
   useLayoutEffect(() => {
     if (!open || !portalEl) return;
-
     recalcPosition(true);
-
     if (rafInit1.current) cancelAnimationFrame(rafInit1.current);
     rafInit1.current = requestAnimationFrame(() => recalcPosition(false));
-
     return () => {
       if (rafInit1.current) cancelAnimationFrame(rafInit1.current);
     };
-    // ✅ عمداً recalcPosition در deps نیست تا لوپ نشود
-  }, [open, portalEl]);
+  }, [open, portalEl, recalcPosition]);
 
   /* ResizeObserver */
   useLayoutEffect(() => {
     if (!open) return;
     const el = popRef.current;
     if (!el) return;
-
     const ro = new ResizeObserver(() => {
       if (rafPos.current != null) return;
       rafPos.current = requestAnimationFrame(() => {
@@ -389,59 +547,79 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         recalcPosition(false);
       });
     });
-
     ro.observe(el);
     return () => ro.disconnect();
-    // ✅ recalcPosition را عمداً در deps نمی‌گذاریم
-  }, [open]);
+  }, [open, recalcPosition]);
 
   /* global scroll/resize/orientation */
   useEffect(() => {
     if (!open) return;
-
     const schedule = () => {
       if (rafPos.current != null) return;
       rafPos.current = requestAnimationFrame(() => {
         rafPos.current = null;
-        recalcPosition(false);
+        // Viewport changes can invalidate the previous placement entirely.
+        recalcPosition(true);
       });
     };
-
     window.addEventListener("scroll", schedule, true);
     window.addEventListener("resize", schedule);
     window.addEventListener("orientationchange", schedule);
-
+    window.visualViewport?.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("scroll", schedule);
     return () => {
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
       window.removeEventListener("orientationchange", schedule);
+      window.visualViewport?.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("scroll", schedule);
       if (rafPos.current) cancelAnimationFrame(rafPos.current);
       rafPos.current = null;
     };
-    // ✅ recalcPosition را عمداً در deps نمی‌گذاریم
-  }, [open]);
+  }, [open, recalcPosition]);
 
-  /* outside close + ESC */
+  /* outside close + ESC => مثل Cancel عمل کند */
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
+    const onDoc = (e: PointerEvent) => {
       const t = e.target as Node;
+      const targetElement =
+        t.nodeType === Node.ELEMENT_NODE
+          ? (t as Element)
+          : t.parentElement;
+      // ComboSelect options may be repositioned outside the popup's painted
+      // containment box. They are still internal calendar interactions.
+      const insideCombo = e
+        .composedPath()
+        .some(
+          (node) =>
+            node instanceof Element &&
+            (node.matches(".rjd-combo-select") ||
+              node.matches(".cs-trigger, .cs-panel, .cs-option"))
+        );
+      if (insideCombo || targetElement?.closest(".rjd-combo-select")) return;
       const anchorEl = (anchorRef as any)?.current as HTMLElement | null;
       if (
         popRef.current &&
         !popRef.current.contains(t) &&
         anchorEl &&
         !anchorEl.contains(t)
-      )
+      ) {
+        // بازگشت درفت به مقدار کامیت‌شده
+        setDraft(committedOnOpenRef.current ?? null);
         onClose();
+      }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        setDraft(committedOnOpenRef.current ?? null);
+        onClose();
+      }
     };
-    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("pointerdown", onDoc, true);
     window.addEventListener("keydown", onKey, true);
     return () => {
-      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("pointerdown", onDoc, true);
       window.removeEventListener("keydown", onKey, true);
     };
   }, [open, onClose, anchorRef]);
@@ -481,91 +659,115 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     return () => mo.disconnect();
   }, [open]);
 
-  const handleSetToday = useCallback(() => {
-    const now = new Date();
-    const jNow = new DateObject({
-      date: now,
-      calendar: persian,
-      locale: persian_fa,
-    });
-    setDraft(now);
-    setViewYear(jNow.year as number);
-    setViewMonth(jNow.month.number);
-    onChange?.(now);
-  }, [onChange]);
+  /* Mark consumer-defined disabled ranges in Zaman's generated day buttons. */
+  useLayoutEffect(() => {
+    if (!open || !bodyRef.current) return;
+    const root = bodyRef.current;
 
-  const handleSetBeginning = useCallback(() => {
-    const d =
-      parseInputToDate(beginDate, beginCalendar) ?? new Date(1970, 0, 1);
-    const j = new DateObject({
-      date: d,
-      calendar: persian,
-      locale: persian_fa,
+    const applyDisabledRanges = () => {
+      root
+        .querySelectorAll<HTMLButtonElement>("button.zm-DaysButton[data-value]")
+        .forEach((button) => {
+          const customDisabled = button.dataset.value
+            ? isDateDisabled(new Date(button.dataset.value))
+            : false;
+
+          if (customDisabled) {
+            if (button.dataset.rjdDisabled !== "true")
+              button.dataset.rjdDisabled = "true";
+            if (button.dataset.disabled !== "true")
+              button.dataset.disabled = "true";
+            if (button.getAttribute("aria-disabled") !== "true")
+              button.setAttribute("aria-disabled", "true");
+            if (!button.disabled) button.disabled = true;
+          } else if (button.dataset.rjdDisabled === "true") {
+            delete button.dataset.rjdDisabled;
+            button.dataset.disabled = "false";
+            button.removeAttribute("aria-disabled");
+            button.disabled = false;
+          }
+        });
+    };
+
+    applyDisabledRanges();
+    const observer = new MutationObserver(applyDisabledRanges);
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-value", "data-disabled", "disabled"],
     });
-    setDraft(d);
-    setViewYear(j.year as number);
-    setViewMonth(j.month.number);
-    onChange?.(d);
-    if (beginAutoConfirm) {
-      onConfirm(d);
-      onClose();
-    }
-  }, [
-    beginDate,
-    beginCalendar,
-    beginAutoConfirm,
-    onConfirm,
-    onClose,
-    onChange,
-  ]);
+    return () => observer.disconnect();
+  }, [open, portalEl, viewYear, viewMonth, calendarDefault, isDateDisabled]);
 
   if (!open || !portalEl) return null;
   const isBody = portalEl === document.body;
-  const showTodayButton = label === "تا تاریخ";
-  const showBeginningButton = label === "از تاریخ";
 
   return createPortal(
     <div
       ref={popRef}
       dir={locale === "fa" ? "rtl" : "ltr"}
-      className={`calendar-header zcal-custom${
-        !defaultValue && !draft ? " no-initial-select" : ""
-      }${className ? ` ${className}` : ""}`}
+      className={`rjd-root calendar-header zcal-custom${
+        className ? ` ${className}` : ""
+      }`}
+      data-rjd-empty-selection={!draftMatchesView ? "true" : undefined}
       style={{
         position: isBody ? "fixed" : "absolute",
-        top: pos?.top ?? 0,
-        left: pos?.left ?? 0,
+        top: pos ? pos.top : -99999,
+        left: pos ? pos.left : -99999,
         width: popupWidth,
         zIndex: isBody ? 100001 : 1000,
         transform: fit?.enabled ? `scale(${fit.scale})` : "none",
         transformOrigin: "top center",
+        opacity: pos ? 1 : 0,
+        pointerEvents: pos ? "auto" : "none",
         ...style,
       }}
+      onClickCapture={(event) => {
+        const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
+          "button.zm-DaysButton[data-value]"
+        );
+        if (!button?.dataset.value) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        const next = new Date(button.dataset.value);
+        if (!isDateDisabled(next)) selectDay(next);
+      }}
+      onKeyDownCapture={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
+          "button.zm-DaysButton[data-value]"
+        );
+        if (button && !button.disabled) {
+          calendarKeyboardSelectionRef.current = true;
+          requestAnimationFrame(() => {
+            calendarKeyboardSelectionRef.current = false;
+          });
+        }
+      }}
+      onMouseDown={(event) => event.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header */}
       <div className="header-main-div">
-        {label && (
+        {resolvedLabel != null && resolvedLabel !== "" && (
           <div className="header-label">
-            {label === "از تاریخ" ? t.titleFrom : t.titleTo}
+            {resolvedLabel}
           </div>
         )}
         <div className="selected-info-div">
           <div className="selected-info-pill">
             {selectedLabel || t.chooseDate}
           </div>
-          {showTodayButton && (
-            <button type="button" onClick={handleSetToday} className="blue-btn">
-              {t.today}
-            </button>
-          )}
-          {showBeginningButton && (
+          {showTodayShortcut && (
             <button
               type="button"
-              onClick={handleSetBeginning}
-              className="blue-btn"
+              className="today-btn"
+              disabled={isDateDisabled(today)}
+              onClick={() => selectDay(new Date())}
             >
-              {t.fromBeginning}
+              {t.today}
             </button>
           )}
         </div>
@@ -573,62 +775,95 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
 
       {/* Month / Year */}
       <div className="header-select-div">
-        <select
-          value={viewMonth}
-          onChange={(e) => setViewMonth(parseInt(e.target.value))}
-          className="select-elm select-month"
-        >
-          {MONTHS.map((m, i) => (
-            <option key={i + 1} value={i + 1}>
-              {m}
-            </option>
-          ))}
-        </select>
+        <ComboSelect
+          options={monthOptions}
+          dir="rtl"
+          placeholderLabel="ماه"
+          hasPlaceholder={false}
+          selectedId={viewMonth}
+          onChange={(e) => setViewMonth(Number(e.id))}
+          placement="auto"
+          panelOffset={8}
+          className="select-month"
+        />
 
-        <select
-          value={viewYear}
-          onChange={(e) => setViewYear(parseInt(e.target.value))}
-          className="select-elm select-year"
-        >
-          {years.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
+        <ComboSelect
+          options={yearOptions}
+          dir="rtl"
+          placeholderLabel="سال"
+          hasPlaceholder={false}
+          selectedId={viewYear}
+          onChange={(e) => setViewYear(Number(e.id))}
+          placement="auto"
+          panelOffset={8}
+          className="select-year"
+        />
       </div>
 
       {/* Calendar */}
       <CalendarProvider locale="fa" direction="rtl">
         <div className="zcal-body" ref={bodyRef}>
           <Calendar
-            key={`${viewYear}-${viewMonth}`}
+            key={`${viewYear}-${viewMonth}-${
+              draft ? new Date(draft).toDateString() : "none"
+            }`}
             defaultValue={calendarDefault}
             onChange={(e: any) => {
-              const next = e?.value ? new Date(e.value) : null;
-              setDraft(next);
-              onChange?.(next);
+              // Pointer selections are handled by the root capture listener.
+              // Zaman also emits changes while remounting after navigation, so
+              // only accept its callback for an explicit keyboard selection.
+              if (!calendarKeyboardSelectionRef.current || !e?.value) return;
+              calendarKeyboardSelectionRef.current = false;
+              selectDay(new Date(e.value));
             }}
           />
         </div>
       </CalendarProvider>
 
       {/* Footer */}
-      <div className="footer-div">
+      {showActionButtons && <div className="footer-div">
         <button
           type="button"
           className="footer-btn"
           onClick={() => {
-            onConfirm(draft ?? null);
-            onClose();
+            // Confirm = انتشار مقدار درفت به بیرون
+            const selectedButton = bodyRef.current?.querySelector<HTMLElement>(
+              '.zm-DaysButton[aria-selected="true"][data-value]'
+            );
+            const selectedValue = selectedButton?.dataset.value
+              ? new Date(selectedButton.dataset.value)
+              : null;
+            const visuallyEmpty =
+              popRef.current?.dataset.rjdEmptySelection === "true";
+            const confirmed =
+              draft ??
+              (!visuallyEmpty && selectedValue ? selectedValue : null) ??
+              implicitSelectionRef.current ??
+              null;
+            onConfirm(confirmed);
+            onChange?.(confirmed);
+            // مقدار کامیت‌شده جدید، همان draft است
+            committedOnOpenRef.current = confirmed;
+            // Let the consumer commit the confirmed value before its close
+            // restoration logic runs (important after clearing an input).
+            window.setTimeout(onClose, 0);
           }}
         >
           {t.confirm}
         </button>
-        <button type="button" className="footer-btn" onClick={onClose}>
+
+        <button
+          type="button"
+          className="footer-btn"
+          onClick={() => {
+            // Cancel = برگرداندن درفت به مقدار کامیت‌شده و عدم انتشار
+            setDraft(committedOnOpenRef.current ?? null);
+            onClose();
+          }}
+        >
           {t.cancel}
         </button>
-      </div>
+      </div>}
     </div>,
     portalEl
   );

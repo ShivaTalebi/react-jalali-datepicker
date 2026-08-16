@@ -1,7 +1,7 @@
 {
-  "name": "react-jalali-datepicker",
-  "version": "0.0.3",
-  "description": "A reusable Jalali/Persian calendar component for React.",
+  "name": "flexible-persian-datepicker",
+  "version": "1.2.0",
+  "description": "Flexible, responsive Jalali (Solar Hijri) datepicker for React with editable inputs, custom formats, disabled ranges and bundled Persian font.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -9,9 +9,9 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
@@ -20,20 +20,32 @@
     "LICENSE"
   ],
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "**/*.css.js"
   ],
   "keywords": [
     "react",
+    "react-datepicker",
     "calendar",
     "jalali",
+    "shamsi",
+    "solar-hijri",
     "persian",
-    "datepicker"
+    "datepicker",
+    "persian-datepicker",
+    "rtl",
+    "typescript"
   ],
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"
   },
+  "dependencies": {
+    "react-date-object": "^2.1.9",
+    "zaman": "^2.1.1"
+  },
   "devDependencies": {
+    "copyfiles": "^2.4.1",
     "@types/react": "^18.3.26",
     "@types/react-dom": "^18.3.7",
     "tsup": "^8.5.0",
@@ -45,13 +57,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/shivatalebi/react-jalali-datepicker"
+    "url": "git+https://github.com/shivatalebi/react-jalali-datepicker.git"
+  },
+  "homepage": "https://github.com/shivatalebi/react-jalali-datepicker#readme",
+  "bugs": {
+    "url": "https://github.com/shivatalebi/react-jalali-datepicker/issues"
   },
   "publishConfig": {
     "access": "public"
-  },
-  "dependencies": {
-    "zaman": "^2.1.1",
-    "react-date-object": "^2.1.9"
   }
 }
