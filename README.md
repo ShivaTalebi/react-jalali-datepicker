@@ -4,7 +4,31 @@ A flexible, responsive and self-contained **Jalali (Solar Hijri / Shamsi) datepi
 
 Attach it to an `input`, `button`, `span`, or any custom element. The package includes its own Persian font and styles, supports typed dates and multiple output formats, and does not depend on the host application's UI framework.
 
-## What's new in v1.2.0
+## What's new in v1.2.4
+
+- Unified width-driven responsive sizing for every calendar instance
+- Fixed inconsistent popup sizes caused by trigger position and vertical space
+- Fixed live-resize race conditions between viewport and element observers
+- Fixed detached popups after responsive reflow moves the trigger off-screen
+- Close safely on external page/container scroll while preserving combobox scroll
+- Preserved a constant `20rem` width on larger screens and proportional scaling only when the viewport is narrower
+- Removed duplicate mobile media-query scaling so typography, spacing and radius scale exactly once
+- Fixed alignment between weekday headings and all seven day columns
+- Fixed the missing bottom corner radius when Confirm/Cancel buttons are hidden
+
+## Fixed in v1.2.3
+
+- Fixed alignment between weekday headings and all seven day columns
+
+## Fixed in v1.2.2
+
+- Fixed a seven-column calendar grid regression in the footerless layout
+
+## Fixed in v1.2.1
+
+- Fixed the missing bottom corner radius when Confirm/Cancel buttons are hidden
+
+## Added in v1.2.0
 
 - Contextual **Today** shortcut after navigating away from today
 - A different optional label for every instance, or no label at all

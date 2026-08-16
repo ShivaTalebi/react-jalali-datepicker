@@ -94,20 +94,6 @@
   align-items: center;
 }
 
-@media (max-width: 30rem) {
-  .rjd-root.calendar-header {
-    border-radius: 1rem;
-  }
-
-  .rjd-root .header-label {
-    font-size: 0.875rem;
-  }
-
-  .rjd-root .selected-info-pill {
-    font-size: 1.3125rem;
-    line-height: 2.125rem;
-  }
-}
 .rjd-root .header-select-div .cs-wrapper {
   flex: 1 1 0;
   min-width: 0;
@@ -301,6 +287,17 @@
   height: 20.3125rem !important;
   border: 0 !important;
   width: 100% !important;
+}
+
+/* When the optional footer is absent, the calendar body becomes the final
+   visible section and must follow the popup's bottom corners. Keeping this
+   clipping local to the body preserves the overflow needed by comboboxes. */
+.rjd-root[data-rjd-has-footer="false"] .zcal-body {
+  border-bottom-right-radius: 1.25rem;
+  border-bottom-left-radius: 1.25rem;
+  /* `clip` keeps the rounded crop without creating the formatting context
+     that `hidden` created and that could compress Zaman's seven-column grid. */
+  overflow: clip;
 }
 
 /* تایپوگرافی */
@@ -552,14 +549,19 @@
 
 /* ——— هم‌تراز کردن «حروف روزهای هفته» با ستون‌های روزها ——— */
 
-/* همه ردیف‌های هدر و بدنه ۷ ستون مساوی داشته باشند */
+/* Weekday headings and day rows must use the same full-width seven-column
+   grid. Zaman's inner day wrapper is narrower by default, which progressively
+   shifts the day centers away from their weekday headings. */
+.zcal-custom .css-sp254y,
 .zcal-custom [role="rowgroup"] > [role="row"] {
   display: grid !important;
   grid-template-columns: repeat(7, 1fr) !important;
   column-gap: 0.25rem !important;
+  width: 100% !important;
 }
 
 /* محتوا در هر سلول مرکزچین شود */
+.zcal-custom .css-sp254y > *,
 .zcal-custom [role="columnheader"],
 .zcal-custom [role="gridcell"] {
   justify-self: center !important;
@@ -571,7 +573,12 @@
   direction: rtl !important;
 }
 
-/* عرض ظرف داخلی Zaman (برای شکستن سطرها جلوگیری شود) */
+/* All Zaman grid wrappers share the same width as the weekday header. */
+.zcal-custom .css-7qlbje,
 .zcal-custom .css-pw7rye {
-  width: calc(100% - 1rem) !important;
+  width: 100% !important;
+}
+.zcal-custom .css-7qlbje {
+  left: 0 !important;
+  right: 0 !important;
 }

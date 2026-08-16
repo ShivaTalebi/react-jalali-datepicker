@@ -199,6 +199,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
   // raf throttles
   const rafPos = useRef<number | null>(null);
   const rafInit1 = useRef<number | null>(null);
+  const forceNextPositionRecalcRef = useRef(false);
 
   // fit-to-viewport
   const [fit, setFit] = useState<{ enabled: boolean; scale: number } | null>(
@@ -379,6 +380,23 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       const vOffLeft = (vv?.offsetLeft ?? 0) | 0;
       const vOffTop = (vv?.offsetTop ?? 0) | 0;
 
+      // A responsive reflow can move the trigger completely outside the
+      // viewport while the popup is open (especially when the page is already
+      // scrolled). Keeping a scaled popup visible in that situation detaches it
+      // from its trigger and makes it float over unrelated content. Match
+      // common datepicker behavior and close until the trigger is visible and
+      // the consumer opens it again.
+      const anchorOutsideViewport =
+        aRect.bottom <= vOffTop ||
+        aRect.top >= vOffTop + vh ||
+        aRect.right <= vOffLeft ||
+        aRect.left >= vOffLeft + vw;
+      if (isBodyHost && anchorOutsideViewport) {
+        setPos(null);
+        onClose();
+        return;
+      }
+
       let aLeft: number, aTop: number, aRight: number, aBottom: number;
       if (isBodyHost) {
         aLeft = Math.round(vOffLeft + aRect.left);
@@ -417,18 +435,36 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
           ? popEl.offsetHeight
           : 27.5 * rootRem;
 
-      const spaceBottom =
-        hostH - (isBodyHost ? aBottom - vOffTop : aBottom) - spacing;
-      const spaceTop = (isBodyHost ? aTop - vOffTop : aTop) - spacing;
-      const spaceRight =
-        hostW - (isBodyHost ? aRight - vOffLeft : aRight) - spacing;
-      const spaceLeft = (isBodyHost ? aLeft - vOffLeft : aLeft) - spacing;
+      // Sizing is a pure function of viewport WIDTH, never of the trigger's
+      // position or popup content height. Every picker in the same viewport
+      // therefore has exactly the same visual width, including instances with
+      // different labels or with/without action buttons.
+      const availableHeight = Math.max(0, hostH - 2 * spacing);
+      const viewportScale = Math.max(
+        0.05,
+        Math.min(1, availableWidth / approxWidth)
+      );
+      const visualWidth = approxWidth * viewportScale;
+      const visualHeight = approxHeight * viewportScale;
 
-      const canBottom = spaceBottom >= approxHeight;
-      const canTop = spaceTop >= approxHeight;
-      const canRight = spaceRight >= approxWidth;
-      const canLeft = spaceLeft >= approxWidth;
-      const widthFits = availableWidth >= approxWidth;
+      const anchorTopInHost = isBodyHost ? aTop - vOffTop : aTop;
+      const anchorBottomInHost = isBodyHost ? aBottom - vOffTop : aBottom;
+      const anchorLeftInHost = isBodyHost ? aLeft - vOffLeft : aLeft;
+      const anchorRightInHost = isBodyHost ? aRight - vOffLeft : aRight;
+
+      // Reserve one gap between anchor/popup and another gap at the viewport
+      // edge. Previously the edge gap was not reserved, so resizing could put
+      // the scaled popup exactly at (or beyond) the top/bottom edge.
+      const spaceBottom = hostH - anchorBottomInHost - 2 * spacing;
+      const spaceTop = anchorTopInHost - 2 * spacing;
+      const spaceRight = hostW - anchorRightInHost - 2 * spacing;
+      const spaceLeft = anchorLeftInHost - 2 * spacing;
+
+      const canBottom = spaceBottom >= visualHeight;
+      const canTop = spaceTop >= visualHeight;
+      const canRight = spaceRight >= visualWidth;
+      const canLeft = spaceLeft >= visualWidth;
+      const heightFits = availableHeight >= visualHeight;
 
       if (
         forceRecomputePlacement ||
@@ -440,10 +476,10 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
           space: number;
           ok: boolean;
         }> = [
-          { dir: "bottom", space: spaceBottom, ok: canBottom && widthFits },
-          { dir: "top", space: spaceTop, ok: canTop && widthFits },
-          { dir: "right", space: spaceRight, ok: canRight },
-          { dir: "left", space: spaceLeft, ok: canLeft },
+          { dir: "bottom", space: spaceBottom, ok: canBottom },
+          { dir: "top", space: spaceTop, ok: canTop },
+          { dir: "right", space: spaceRight, ok: canRight && heightFits },
+          { dir: "left", space: spaceLeft, ok: canLeft && heightFits },
         ];
         const okOnes = candidates
           .filter((c) => c.ok)
@@ -455,48 +491,75 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         Math.min(Math.max(v, min), max);
       const baseLeft = isBodyHost ? vOffLeft : 0;
       const baseTop = isBodyHost ? vOffTop : 0;
-      const minLeft = baseLeft + spacing;
-      const maxLeft = baseLeft + hostW - spacing - approxWidth;
+      const minVisualLeft = baseLeft + spacing;
+      const maxVisualLeft = Math.max(
+        minVisualLeft,
+        baseLeft + hostW - spacing - visualWidth
+      );
       const minTop = baseTop + spacing;
-      const maxTop = baseTop + hostH - spacing - approxHeight;
+      const maxTop = Math.max(
+        minTop,
+        baseTop + hostH - spacing - visualHeight
+      );
+      // transform-origin is top center, so convert a desired visual left edge
+      // back to the unscaled element's CSS `left` value.
+      const layoutLeftForVisual = (visualLeft: number) =>
+        visualLeft - (approxWidth - visualWidth) / 2;
 
       let left = aLeft;
       let top = aBottom + spacing;
-      let fitState: { enabled: boolean; scale: number } | null = null;
+      const fitState = {
+        enabled: viewportScale < 0.9999,
+        scale: viewportScale,
+      };
 
       switch (placementRef.current) {
         case "bottom":
-          left = clamp(aLeft, minLeft, maxLeft);
+          left = layoutLeftForVisual(
+            clamp(aLeft, minVisualLeft, maxVisualLeft)
+          );
           top = clamp(aBottom + spacing, minTop, maxTop);
           break;
         case "top":
-          left = clamp(aLeft, minLeft, maxLeft);
-          top = clamp(aTop - spacing - approxHeight, minTop, maxTop);
+          left = layoutLeftForVisual(
+            clamp(aLeft, minVisualLeft, maxVisualLeft)
+          );
+          top = clamp(aTop - spacing - visualHeight, minTop, maxTop);
           break;
         case "right":
-          left = clamp(aRight + spacing, minLeft, maxLeft);
+          left = layoutLeftForVisual(
+            clamp(aRight + spacing, minVisualLeft, maxVisualLeft)
+          );
           top = clamp(aTop, minTop, maxTop);
           break;
         case "left":
-          left = clamp(aLeft - spacing - approxWidth, minLeft, maxLeft);
+          left = layoutLeftForVisual(
+            clamp(
+              aLeft - spacing - visualWidth,
+              minVisualLeft,
+              maxVisualLeft
+            )
+          );
           top = clamp(aTop, minTop, maxTop);
           break;
         case "fit":
         default: {
-          const availW = hostW - 2 * spacing;
-          const availH = Math.max(spaceBottom, spaceTop);
-          const scaleW = availW / approxWidth;
-          const scaleH = availH / approxHeight;
-          const scale = Math.max(0.1, Math.min(1, Math.min(scaleW, scaleH)));
-          const fitH = approxHeight * scale;
           // With a top-center transform origin, center the unscaled box; the
           // scaled visual box then remains centered in the viewport.
           left = Math.round(baseLeft + (hostW - approxWidth) / 2);
           const placeBelow = spaceBottom >= spaceTop;
           top = placeBelow
             ? Math.round(aBottom + spacing)
-            : Math.round(aTop - spacing - fitH);
-          fitState = { enabled: true, scale };
+            : Math.round(aTop - spacing - visualHeight);
+          // Reflow during a resize can move the anchor while the popup is
+          // open. Clamp the final *visual* box after scaling, rather than the
+          // unscaled element, so it always remains inside the viewport.
+          const safeMinTop = baseTop + spacing;
+          const safeMaxTop = Math.max(
+            safeMinTop,
+            baseTop + hostH - spacing - visualHeight
+          );
+          top = clamp(top, safeMinTop, safeMaxTop);
           break;
         }
       }
@@ -508,10 +571,10 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       lastPosRef.current = np;
 
       setFit((current) => {
-        const next = fitState ?? { enabled: false, scale: 1 };
-        return current?.enabled === next.enabled && current?.scale === next.scale
+        return current?.enabled === fitState.enabled &&
+          current?.scale === fitState.scale
           ? current
-          : next;
+          : fitState;
       });
 
       if (popEl && popEl.offsetHeight > 80 && popEl.offsetWidth > 50) {
@@ -521,7 +584,26 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         };
       }
     },
-    [open, anchorRef, portalEl]
+    [open, anchorRef, portalEl, onClose]
+  );
+
+  /* Coalesce observer + viewport events without losing a forced placement
+     recomputation. During a live resize, ResizeObserver can schedule first;
+     the old implementation then discarded the window resize request and kept
+     a stale scale/placement until another event happened. */
+  const schedulePositionRecalc = useCallback(
+    (forceRecomputePlacement: boolean) => {
+      forceNextPositionRecalcRef.current =
+        forceNextPositionRecalcRef.current || forceRecomputePlacement;
+      if (rafPos.current != null) return;
+      rafPos.current = requestAnimationFrame(() => {
+        rafPos.current = null;
+        const force = forceNextPositionRecalcRef.current;
+        forceNextPositionRecalcRef.current = false;
+        recalcPosition(force);
+      });
+    },
+    [recalcPosition]
   );
 
   /* initial positioning */
@@ -540,43 +622,42 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     if (!open) return;
     const el = popRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      if (rafPos.current != null) return;
-      rafPos.current = requestAnimationFrame(() => {
-        rafPos.current = null;
-        recalcPosition(false);
-      });
-    });
+    const ro = new ResizeObserver(() => schedulePositionRecalc(false));
     ro.observe(el);
     return () => ro.disconnect();
-  }, [open, recalcPosition]);
+  }, [open, schedulePositionRecalc]);
 
   /* global scroll/resize/orientation */
   useEffect(() => {
     if (!open) return;
-    const schedule = () => {
-      if (rafPos.current != null) return;
-      rafPos.current = requestAnimationFrame(() => {
-        rafPos.current = null;
-        // Viewport changes can invalidate the previous placement entirely.
-        recalcPosition(true);
-      });
+    const schedule = () => schedulePositionRecalc(true);
+    const onExternalScroll = (event: Event) => {
+      const target = event.target;
+      // Scrolling the month/year combobox is an internal interaction and must
+      // not close the picker. Any page or ancestor-container scroll closes it,
+      // preventing continuous scroll from repeatedly changing popup scale.
+      if (target instanceof Node && popRef.current?.contains(target)) {
+        schedulePositionRecalc(false);
+        return;
+      }
+      onClose();
     };
-    window.addEventListener("scroll", schedule, true);
+    window.addEventListener("scroll", onExternalScroll, true);
     window.addEventListener("resize", schedule);
     window.addEventListener("orientationchange", schedule);
     window.visualViewport?.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("scroll", schedule);
+    window.visualViewport?.addEventListener("scroll", onExternalScroll);
     return () => {
-      window.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("scroll", onExternalScroll, true);
       window.removeEventListener("resize", schedule);
       window.removeEventListener("orientationchange", schedule);
       window.visualViewport?.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("scroll", schedule);
+      window.visualViewport?.removeEventListener("scroll", onExternalScroll);
       if (rafPos.current) cancelAnimationFrame(rafPos.current);
       rafPos.current = null;
+      forceNextPositionRecalcRef.current = false;
     };
-  }, [open, recalcPosition]);
+  }, [open, schedulePositionRecalc, onClose]);
 
   /* outside close + ESC => مثل Cancel عمل کند */
   useEffect(() => {
@@ -710,6 +791,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       className={`rjd-root calendar-header zcal-custom${
         className ? ` ${className}` : ""
       }`}
+      data-rjd-has-footer={showActionButtons ? "true" : "false"}
       data-rjd-empty-selection={!draftMatchesView ? "true" : undefined}
       style={{
         position: isBody ? "fixed" : "absolute",
