@@ -4,7 +4,7 @@ A flexible, responsive and self-contained **Jalali (Solar Hijri / Shamsi) datepi
 
 Attach it to an `input`, `button`, `span`, or any custom element. The package includes its own Persian font and styles, supports typed dates and multiple output formats, and does not depend on the host application's UI framework.
 
-## What's new in v1.2.4
+## What's new in v1.2.1
 
 - Unified width-driven responsive sizing for every calendar instance
 - Fixed inconsistent popup sizes caused by trigger position and vertical space
@@ -16,17 +16,11 @@ Attach it to an `input`, `button`, `span`, or any custom element. The package in
 - Fixed alignment between weekday headings and all seven day columns
 - Fixed the missing bottom corner radius when Confirm/Cancel buttons are hidden
 
-## Fixed in v1.2.3
-
-- Fixed alignment between weekday headings and all seven day columns
-
-## Fixed in v1.2.2
-
-- Fixed a seven-column calendar grid regression in the footerless layout
-
 ## Fixed in v1.2.1
 
 - Fixed the missing bottom corner radius when Confirm/Cancel buttons are hidden
+- Fixed alignment between weekday headings and all seven day columns
+- Fixed a seven-column calendar grid regression in the footerless layout
 
 ## Added in v1.2.0
 
