@@ -9,11 +9,15 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, CalendarProvider } from "zaman";
-import DateObject from "react-date-object";
-import persian from "react-date-object/calendars/persian.js";
-import persian_fa from "react-date-object/locales/persian_fa.js";
 import { ComboSelect, Option as CSOption } from "./ComboSelect";
+import { CalendarGrid } from "./CalendarGrid";
+import { formatCalendarDate } from "../utils/format";
+import {
+  CALENDAR_MONTHS,
+  toCalendarObject,
+  type CalendarSystem,
+  type IslamicDateAdjustment,
+} from "../utils/calendar";
 import "../styles/styles.css";
 
 /* ---------------- types ---------------- */
@@ -45,6 +49,13 @@ export type JalaliDatepickerProps = {
   /** Optional per-instance label. Pass an empty string or null to hide it. */
   label?: React.ReactNode;
   locale?: "fa" | "en";
+  /** Calendar system. Existing integrations default to Jalali. */
+  calendar?: CalendarSystem;
+  /**
+   * Moves calculated Islamic dates by -2..+2 days to match a local or
+   * officially announced lunar calendar. Only used with calendar="islamic".
+   */
+  islamicDateAdjustment?: IslamicDateAdjustment;
   className?: string;
   style?: React.CSSProperties;
   /** محل اختیاری Portal؛ پیش‌فرض document.body است. */
@@ -72,36 +83,25 @@ export type JalaliDatepickerProps = {
   };
 };
 
-/* ---------------- constants ---------------- */
-const MONTHS = [
-  "فروردین",
-  "اردیبهشت",
-  "خرداد",
-  "تیر",
-  "مرداد",
-  "شهریور",
-  "مهر",
-  "آبان",
-  "آذر",
-  "دی",
-  "بهمن",
-  "اسفند",
-] as const;
-
 type Placement = "bottom" | "top" | "left" | "right" | "fit";
 
 /* ---------------- helpers ---------------- */
-function formatSelectedHeader(d: Date | null) {
+function formatSelectedHeader(
+  d: Date | null,
+  calendar: CalendarSystem,
+  locale: "fa" | "en",
+  islamicDateAdjustment: IslamicDateAdjustment
+) {
   if (!d) return "";
-  const weekdayFull = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-    weekday: "long",
-  }).format(d);
-  const weekdayFirst = weekdayFull.trim().charAt(0);
-  const monthName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-    month: "long",
-  }).format(d);
-  const j = new DateObject({ date: d, calendar: persian, locale: persian_fa });
-  return `${weekdayFirst}، ${j.day} ${monthName}`;
+  const full = formatCalendarDate(d, "dddd DD MMMM YYYY", {
+    calendar,
+    locale,
+    islamicDateAdjustment,
+  });
+  const firstSpace = full.indexOf(" ");
+  const weekday = firstSpace >= 0 ? full.slice(0, firstSpace) : full;
+  const datePart = firstSpace >= 0 ? full.slice(firstSpace + 1).replace(/\s+\d{4}$/, "") : "";
+  return `${weekday.trim().charAt(0)}${locale === "fa" ? "،" : ","} ${datePart}`;
 }
 
 function isSameDay(a: Date | null, b: Date | null) {
@@ -127,6 +127,8 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     // ui
     label,
     locale = "fa",
+    calendar = "jalali",
+    islamicDateAdjustment = 1,
     className,
     style,
     portalContainer,
@@ -135,13 +137,19 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     disabledDateRanges = [],
   } = props;
 
+  // Gregorian calendars are intentionally English-only so their direction,
+  // numerals and calendar vocabulary stay consistent in every host project.
+  const effectiveLocale: "fa" | "en" =
+    calendar === "gregorian" ? "en" : locale;
+  const englishUi = effectiveLocale === "en";
+
   const t = {
-    titleFrom: L.titleFrom ?? "از تاریخ",
-    titleTo: L.titleTo ?? "تا تاریخ",
-    confirm: L.confirm ?? "تایید",
-    cancel: L.cancel ?? "انصراف",
-    chooseDate: L.chooseDate ?? "انتخاب تاریخ",
-    today: L.today ?? "امروز",
+    titleFrom: L.titleFrom ?? (englishUi ? "From date" : "از تاریخ"),
+    titleTo: L.titleTo ?? (englishUi ? "To date" : "تا تاریخ"),
+    confirm: L.confirm ?? (englishUi ? "Confirm" : "تایید"),
+    cancel: L.cancel ?? (englishUi ? "Cancel" : "انصراف"),
+    chooseDate: L.chooseDate ?? (englishUi ? "Choose date" : "انتخاب تاریخ"),
+    today: L.today ?? (englishUi ? "Today" : "امروز"),
   };
   const resolvedLabel =
     typeof label === "string" && label === "از تاریخ"
@@ -172,20 +180,19 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
 
   // visible year/month (بر اساس value/defaultValue یا تاریخ جاری)
   const initDO = useMemo(
-    () =>
-      new DateObject({
-        date: value ?? defaultValue ?? new Date(),
-        calendar: persian,
-        locale: persian_fa,
-      }),
-    [value, defaultValue]
+    () => toCalendarObject(
+      value ?? defaultValue ?? new Date(),
+      calendar,
+      effectiveLocale,
+      islamicDateAdjustment
+    ),
+    [value, defaultValue, calendar, effectiveLocale, islamicDateAdjustment]
   );
   const [viewYear, setViewYear] = useState<number>(initDO.year as number);
   const [viewMonth, setViewMonth] = useState<number>(initDO.month.number);
 
   const popRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const calendarKeyboardSelectionRef = useRef(false);
 
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -207,59 +214,39 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
   );
 
   const years = useMemo(() => {
-    const s = 1350,
-      e = 1450;
+    const current = toCalendarObject(new Date(), calendar, effectiveLocale, islamicDateAdjustment).year as number;
+    const s = calendar === "jalali" ? 1350 : current - 100;
+    const e = calendar === "jalali" ? 1450 : current + 100;
     return Array.from({ length: e - s + 1 }, (_, i) => s + i);
-  }, []);
+  }, [calendar, effectiveLocale, islamicDateAdjustment]);
 
   const monthOptions: CSOption[] = useMemo(
-    () => MONTHS.map((m, i) => ({ id: i + 1, label: m, value: String(i + 1) })),
-    []
+    () => CALENDAR_MONTHS[calendar][effectiveLocale].map((m, i) => ({
+      id: i + 1,
+      label: m,
+      value: String(i + 1),
+    })),
+    [calendar, effectiveLocale]
   );
   const yearOptions: CSOption[] = useMemo(
     () => years.map((y) => ({ id: y, label: String(y), value: String(y) })),
     [years]
   );
 
-  const viewAnchorDate = useMemo(
-    () =>
-      new DateObject({
-        calendar: persian,
-        locale: persian_fa,
-        year: viewYear,
-        month: viewMonth,
-        day: 1,
-      }).toDate(),
-    [viewYear, viewMonth]
-  );
-
   const draftMatchesView = useMemo(() => {
     if (!draft) return false;
-    const draftDate = new DateObject({
-      date: draft,
-      calendar: persian,
-      locale: persian_fa,
-    });
+    const draftDate = toCalendarObject(draft, calendar, effectiveLocale, islamicDateAdjustment);
     return draftDate.year === viewYear && draftDate.month.number === viewMonth;
-  }, [draft, viewYear, viewMonth]);
+  }, [draft, viewYear, viewMonth, calendar, effectiveLocale, islamicDateAdjustment]);
 
-  // The month/year controls own the visible grid. Keep the committed draft
-  // selected only while it belongs to that grid; otherwise use the first day
-  // merely as Zaman's view anchor and hide its implicit selection.
-  const calendarDefault = useMemo(
-    () => (draftMatchesView && draft ? draft : viewAnchorDate),
-    [draftMatchesView, draft, viewAnchorDate]
+  const selectedLabel = useMemo(
+    () => formatSelectedHeader(draft, calendar, effectiveLocale, islamicDateAdjustment),
+    [draft, calendar, effectiveLocale, islamicDateAdjustment]
   );
-  const selectedLabel = useMemo(() => formatSelectedHeader(draft), [draft]);
   const today = useMemo(() => new Date(), [open]);
   const todayObject = useMemo(
-    () =>
-      new DateObject({
-        date: today,
-        calendar: persian,
-        locale: persian_fa,
-      }),
-    [today]
+    () => toCalendarObject(today, calendar, effectiveLocale, islamicDateAdjustment),
+    [today, calendar, effectiveLocale, islamicDateAdjustment]
   );
   const showTodayShortcut =
     !isSameDay(draft, today) ||
@@ -294,11 +281,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     (next: Date | null) => {
       if (isDateDisabled(next)) return;
       if (next) {
-        const selectedDate = new DateObject({
-          date: next,
-          calendar: persian,
-          locale: persian_fa,
-        });
+        const selectedDate = toCalendarObject(next, calendar, effectiveLocale, islamicDateAdjustment);
         setViewYear(selectedDate.year as number);
         setViewMonth(selectedDate.month.number);
       }
@@ -310,7 +293,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         onClose();
       }
     },
-    [isDateDisabled, showActionButtons, onChange, onConfirm, onClose]
+    [isDateDisabled, showActionButtons, onChange, onConfirm, onClose, calendar, effectiveLocale, islamicDateAdjustment]
   );
 
   /* portal host */
@@ -346,15 +329,11 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     implicitSelectionRef.current = useImplicitToday ? next : null;
     setDraft(next);
     if (next || isInitialOpen) {
-      const cur = new DateObject({
-        date: next ?? new Date(),
-        calendar: persian,
-        locale: persian_fa,
-      });
+      const cur = toCalendarObject(next ?? new Date(), calendar, effectiveLocale, islamicDateAdjustment);
       setViewYear(cur.year as number);
       setViewMonth(cur.month.number);
     }
-  }, [open, value, defaultValue]);
+  }, [open, value, defaultValue, calendar, effectiveLocale, islamicDateAdjustment]);
 
   /* calc position + fit  */
   const recalcPosition = useCallback(
@@ -705,94 +684,21 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     };
   }, [open, onClose, anchorRef]);
 
-  /* hide inner header of Zaman */
-  useEffect(() => {
-    if (!open || !bodyRef.current) return;
-    const root = bodyRef.current;
-    const hideHeader = () => {
-      const headers: HTMLElement[] = [];
-      const cand1 = root.querySelector(
-        ":scope > div > div:first-child"
-      ) as HTMLElement | null;
-      if (cand1) headers.push(cand1);
-      root
-        .querySelectorAll<HTMLElement>('[class*="header"],[class*="Header"]')
-        .forEach((el) => headers.push(el));
-      const cand3 = root.querySelector(
-        '[role="toolbar"]'
-      ) as HTMLElement | null;
-      if (cand3) headers.push(cand3);
-      headers.forEach((h) =>
-        Object.assign(h.style, {
-          display: "none",
-          height: "0",
-          padding: "0",
-          margin: "0",
-          border: "0",
-          opacity: "0",
-          pointerEvents: "none",
-        })
-      );
-    };
-    hideHeader();
-    const mo = new MutationObserver(hideHeader);
-    mo.observe(root, { childList: true, subtree: true });
-    return () => mo.disconnect();
-  }, [open]);
-
-  /* Mark consumer-defined disabled ranges in Zaman's generated day buttons. */
-  useLayoutEffect(() => {
-    if (!open || !bodyRef.current) return;
-    const root = bodyRef.current;
-
-    const applyDisabledRanges = () => {
-      root
-        .querySelectorAll<HTMLButtonElement>("button.zm-DaysButton[data-value]")
-        .forEach((button) => {
-          const customDisabled = button.dataset.value
-            ? isDateDisabled(new Date(button.dataset.value))
-            : false;
-
-          if (customDisabled) {
-            if (button.dataset.rjdDisabled !== "true")
-              button.dataset.rjdDisabled = "true";
-            if (button.dataset.disabled !== "true")
-              button.dataset.disabled = "true";
-            if (button.getAttribute("aria-disabled") !== "true")
-              button.setAttribute("aria-disabled", "true");
-            if (!button.disabled) button.disabled = true;
-          } else if (button.dataset.rjdDisabled === "true") {
-            delete button.dataset.rjdDisabled;
-            button.dataset.disabled = "false";
-            button.removeAttribute("aria-disabled");
-            button.disabled = false;
-          }
-        });
-    };
-
-    applyDisabledRanges();
-    const observer = new MutationObserver(applyDisabledRanges);
-    observer.observe(root, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["data-value", "data-disabled", "disabled"],
-    });
-    return () => observer.disconnect();
-  }, [open, portalEl, viewYear, viewMonth, calendarDefault, isDateDisabled]);
-
   if (!open || !portalEl) return null;
   const isBody = portalEl === document.body;
 
   return createPortal(
     <div
       ref={popRef}
-      dir={locale === "fa" ? "rtl" : "ltr"}
+      dir={effectiveLocale === "fa" ? "rtl" : "ltr"}
+      lang={effectiveLocale === "fa" ? "fa" : "en"}
+      data-locale={effectiveLocale}
       className={`rjd-root calendar-header zcal-custom${
         className ? ` ${className}` : ""
       }`}
       data-rjd-has-footer={showActionButtons ? "true" : "false"}
       data-rjd-empty-selection={!draftMatchesView ? "true" : undefined}
+      data-rjd-calendar={calendar}
       style={{
         position: isBody ? "fixed" : "absolute",
         top: pos ? pos.top : -99999,
@@ -804,29 +710,6 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         opacity: pos ? 1 : 0,
         pointerEvents: pos ? "auto" : "none",
         ...style,
-      }}
-      onClickCapture={(event) => {
-        const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-          "button.zm-DaysButton[data-value]"
-        );
-        if (!button?.dataset.value) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        const next = new Date(button.dataset.value);
-        if (!isDateDisabled(next)) selectDay(next);
-      }}
-      onKeyDownCapture={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-          "button.zm-DaysButton[data-value]"
-        );
-        if (button && !button.disabled) {
-          calendarKeyboardSelectionRef.current = true;
-          requestAnimationFrame(() => {
-            calendarKeyboardSelectionRef.current = false;
-          });
-        }
       }}
       onMouseDown={(event) => event.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -859,8 +742,8 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       <div className="header-select-div">
         <ComboSelect
           options={monthOptions}
-          dir="rtl"
-          placeholderLabel="ماه"
+          dir={effectiveLocale === "fa" ? "rtl" : "ltr"}
+          placeholderLabel={effectiveLocale === "fa" ? "ماه" : "Month"}
           hasPlaceholder={false}
           selectedId={viewMonth}
           onChange={(e) => setViewMonth(Number(e.id))}
@@ -871,8 +754,8 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
 
         <ComboSelect
           options={yearOptions}
-          dir="rtl"
-          placeholderLabel="سال"
+          dir="ltr"
+          placeholderLabel={effectiveLocale === "fa" ? "سال" : "Year"}
           hasPlaceholder={false}
           selectedId={viewYear}
           onChange={(e) => setViewYear(Number(e.id))}
@@ -883,24 +766,19 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       </div>
 
       {/* Calendar */}
-      <CalendarProvider locale="fa" direction="rtl">
-        <div className="zcal-body" ref={bodyRef}>
-          <Calendar
-            key={`${viewYear}-${viewMonth}-${
-              draft ? new Date(draft).toDateString() : "none"
-            }`}
-            defaultValue={calendarDefault}
-            onChange={(e: any) => {
-              // Pointer selections are handled by the root capture listener.
-              // Zaman also emits changes while remounting after navigation, so
-              // only accept its callback for an explicit keyboard selection.
-              if (!calendarKeyboardSelectionRef.current || !e?.value) return;
-              calendarKeyboardSelectionRef.current = false;
-              selectDay(new Date(e.value));
-            }}
-          />
-        </div>
-      </CalendarProvider>
+      <div className="zcal-body rjd-native-body" ref={bodyRef}>
+        <CalendarGrid
+          calendar={calendar}
+          locale={effectiveLocale}
+          islamicDateAdjustment={islamicDateAdjustment}
+          year={viewYear}
+          month={viewMonth}
+          selected={draftMatchesView ? draft : null}
+          today={today}
+          isDisabled={isDateDisabled}
+          onSelect={selectDay}
+        />
+      </div>
 
       {/* Footer */}
       {showActionButtons && <div className="footer-div">
@@ -909,17 +787,11 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
           className="footer-btn"
           onClick={() => {
             // Confirm = انتشار مقدار درفت به بیرون
-            const selectedButton = bodyRef.current?.querySelector<HTMLElement>(
-              '.zm-DaysButton[aria-selected="true"][data-value]'
-            );
-            const selectedValue = selectedButton?.dataset.value
-              ? new Date(selectedButton.dataset.value)
-              : null;
             const visuallyEmpty =
               popRef.current?.dataset.rjdEmptySelection === "true";
             const confirmed =
               draft ??
-              (!visuallyEmpty && selectedValue ? selectedValue : null) ??
+              (!visuallyEmpty ? implicitSelectionRef.current : null) ??
               implicitSelectionRef.current ??
               null;
             onConfirm(confirmed);

@@ -1,52 +1,49 @@
-# flexible-persian-datepicker
+# Flexible Persian DatePicker — React Jalali (Shamsi) Date Picker
 
-A flexible, responsive and self-contained **Jalali (Solar Hijri / Shamsi) datepicker** for React 18+ and TypeScript.
+[![npm version](https://img.shields.io/npm/v/flexible-persian-datepicker.svg)](https://www.npmjs.com/package/flexible-persian-datepicker)
+[![npm downloads](https://img.shields.io/npm/dm/flexible-persian-datepicker.svg)](https://www.npmjs.com/package/flexible-persian-datepicker)
+[![license](https://img.shields.io/npm/l/flexible-persian-datepicker.svg)](./LICENSE)
 
-Attach it to an `input`, `button`, `span`, or any custom element. The package includes its own Persian font and styles, supports typed dates and multiple output formats, and does not depend on the host application's UI framework.
+**Flexible Persian DatePicker** is a responsive, self-contained multi-calendar datepicker for React 18+. It supports Jalali (Shamsi / Solar Hijri), Islamic Hijri and Gregorian calendars and includes full TypeScript declarations.
 
-## What's new in v1.2.1
+Use it as a **Shamsi Calendar** on an editable `input`, `button`, `span`, or any custom HTML element. The package includes its own Persian font and isolated styles, supports multiple Solar Hijri date formats, and does not depend on the host application's UI framework.
 
-- Unified width-driven responsive sizing for every calendar instance
-- Fixed inconsistent popup sizes caused by trigger position and vertical space
-- Fixed live-resize race conditions between viewport and element observers
-- Fixed detached popups after responsive reflow moves the trigger off-screen
-- Close safely on external page/container scroll while preserving combobox scroll
-- Preserved a constant `20rem` width on larger screens and proportional scaling only when the viewport is narrower
-- Removed duplicate mobile media-query scaling so typography, spacing and radius scale exactly once
-- Fixed alignment between weekday headings and all seven day columns
-- Fixed the missing bottom corner radius when Confirm/Cancel buttons are hidden
+## Package links
 
-## Fixed in v1.2.1
+- [Install Flexible Persian DatePicker from npm](https://www.npmjs.com/package/flexible-persian-datepicker)
+- [Source code and documentation on GitHub](https://github.com/shivatalebi/react-jalali-datepicker)
+- [Report an issue or request a feature](https://github.com/shivatalebi/react-jalali-datepicker/issues)
 
-- Fixed the missing bottom corner radius when Confirm/Cancel buttons are hidden
-- Fixed alignment between weekday headings and all seven day columns
-- Fixed a seven-column calendar grid regression in the footerless layout
+## Preview
 
-## Added in v1.2.0
+![Flexible Persian DatePicker calendar preview](./docs/assets/calendar-preview.png)
 
-- Contextual **Today** shortcut after navigating away from today
-- A different optional label for every instance, or no label at all
-- Responsive positioning and scaling on mobile, tablet and desktop
-- `rem`-based dimensions for consistent flexible scaling
-- Improved month/year combobox and left-to-right year display
-- Reliable selection after clearing an input and live synchronization while typing
-- Inclusive disabled date ranges with built-in styling
-
-## Features
+## Features and benefits
 
 - Jalali / Persian / Solar Hijri calendar
+- Islamic Hijri calendar with Persian and English month names
+- Gregorian calendar
+- Conversion and parsing between Jalali, Islamic and Gregorian dates
+- Configurable Islamic date adjustment for official or locally observed dates
 - React JavaScript and React TypeScript support
 - Controlled and uncontrolled standard JavaScript `Date` values
 - Immediate selection or optional Confirm/Cancel workflow
 - Editable input with live calendar synchronization
+- Reliable first-click selection after clearing an input
 - Seven display and parse formats
 - Persian, Arabic and Latin digit parsing
-- Custom label and UI texts per instance
+- Different optional labels and UI texts for every calendar instance
+- Contextual **Today** shortcut after navigating to another day, month or year
 - Multiple inclusive disabled date ranges
-- Responsive placement without covering the trigger
-- Automatic repositioning on resize, scroll and orientation changes
+- Width-driven responsive sizing on mobile, tablet and desktop
+- Consistent `rem`-based typography, spacing and corner radius
+- Responsive placement without covering the trigger element
+- Automatic repositioning on resize and orientation changes
+- Safe closing on page or container scroll without breaking internal combobox scrolling
 - Portal rendering to avoid clipping by parent containers
 - Outside-click and Escape-key closing
+- Seven-column day alignment with or without the optional action footer
+- Left-to-right year values inside the year combobox
 - Bundled `IRANSansFaNum` font and automatically injected styles
 - Per-instance custom font through a CSS variable
 - RTL Persian UI and optional English direction/labels
@@ -99,6 +96,86 @@ export default function BasicDatepicker() {
 ```
 
 `onConfirm` receives a normal JavaScript `Date | null`. Use `formatJalaliDate` to display it as a Jalali date or send the `Date` to your API.
+
+## Jalali, Islamic and Gregorian calendars
+
+`calendar` defaults to `"jalali"`, so existing integrations remain unchanged. Use the same component and JavaScript `Date` value for all supported calendar systems:
+
+```tsx
+import {
+  PersianDatepicker,
+  formatCalendarDate,
+  parseCalendarDate,
+  type CalendarSystem,
+} from "flexible-persian-datepicker";
+
+const calendar: CalendarSystem = "islamic"; // jalali | islamic | gregorian
+
+const text = formatCalendarDate(date, "YYYY/MM/DD", {
+  calendar,
+  locale: "fa",
+});
+
+const dateObject = parseCalendarDate(text, "YYYY/MM/DD", {
+  calendar,
+  locale: "fa",
+});
+
+// Islamic: both numeric and textual output are supported.
+const islamicNumeric = formatCalendarDate(date, "YYYY/MM/DD", {
+  calendar: "islamic",
+  locale: "fa",
+}); // 1446/02/10
+
+const islamicText = formatCalendarDate(date, "DD MMM YYYY", {
+  calendar: "islamic",
+  locale: "fa",
+}); // 10 صفر 1446
+
+// Gregorian mode is automatically English, LTR and uses Latin digits.
+const gregorianText = formatCalendarDate(date, "dddd, DD MMMM YYYY", {
+  calendar: "gregorian",
+}); // Thursday, 15 August 2024
+
+<PersianDatepicker
+  calendar={calendar}
+  open={open}
+  anchorRef={anchorRef}
+  value={dateObject}
+  onConfirm={setDate}
+  onClose={() => setOpen(false)}
+/>;
+```
+
+Gregorian mode consistently renders English weekday/month names, Latin digits,
+LTR dropdowns and English default action labels. The `labels` prop can still
+override action texts for a specific instance.
+
+It also ignores the bundled Persian digit font and uses an isolated system
+Latin font stack. A consumer can customize that stack without affecting other
+calendar modes:
+
+```tsx
+<PersianDatepicker
+  calendar="gregorian"
+  style={{
+    "--rjd-gregorian-font-family": 'Inter, "Segoe UI", sans-serif',
+  } as React.CSSProperties}
+  {...props}
+/>
+```
+
+Islamic mode uses a deterministic Civil Hijri calculation and applies a default `+1` day adjustment to match commonly announced dates. Lunar calendars can differ by country, timezone and moon sighting. Override the adjustment per instance when required:
+
+```tsx
+<PersianDatepicker
+  calendar="islamic"
+  islamicDateAdjustment={0} // -2 | -1 | 0 | 1 | 2
+  {...props}
+/>
+```
+
+The same adjustment must be passed to `formatCalendarDate` and `parseCalendarDate` when a non-default value is used. This keeps display, parsing and selection fully reversible without an accidental one-day drift.
 
 ## Selection modes
 
@@ -372,7 +449,9 @@ html { font-size: 16px; }
 | `onChange` | `(date: Date \| null) => void` | — | Optional committed-value notification. |
 | `showActionButtons` | `boolean` | `false` | Shows Confirm/Cancel instead of immediate commit. |
 | `label` | `ReactNode` | — | Per-instance heading; empty values render nothing. |
-| `locale` | `"fa" \| "en"` | `"fa"` | Direction and localized calendar output. |
+| `locale` | `"fa" \| "en"` | `"fa"` | Direction and localized output. Gregorian mode always resolves to English/LTR. |
+| `calendar` | `"jalali" \| "islamic" \| "gregorian"` | `"jalali"` | Selects the calendar system. |
+| `islamicDateAdjustment` | `-2 \| -1 \| 0 \| 1 \| 2` | `1` | Aligns Islamic dates with an official or locally observed calendar. |
 | `labels` | `object` | Persian texts | Overrides Today, Confirm, Cancel and helper texts. |
 | `disabledDateRanges` | `readonly { from: Date; to: Date }[]` | `[]` | Inclusive non-selectable ranges. |
 | `className` | `string` | — | Extra class on the popup root. |
@@ -382,6 +461,18 @@ html { font-size: 16px; }
 ### Utility API
 
 ```ts
+formatCalendarDate(
+  date: Date | null | undefined,
+  format?: CalendarDisplayFormat,
+  options?: CalendarFormatOptions
+): string;
+
+parseCalendarDate(
+  input: string,
+  format: CalendarDisplayFormat,
+  options?: CalendarFormatOptions
+): Date | null;
+
 formatJalaliDate(
   date: Date | null | undefined,
   format?: JalaliDisplayFormat,
@@ -395,7 +486,7 @@ parseJalaliDate(
 ): Date | null;
 ```
 
-Exported types include `JalaliDatepickerProps`, `JalaliDisabledDateRange`, `JalaliDisplayFormat`, and `JalaliFormatLocale`.
+Exported types include `CalendarSystem`, `CalendarLocale`, `IslamicDateAdjustment`, `CalendarDisplayFormat`, `CalendarFormatOptions`, `JalaliDatepickerProps`, `JalaliDisabledDateRange`, `JalaliDisplayFormat`, and `JalaliFormatLocale`.
 
 ## Accessibility and closing
 

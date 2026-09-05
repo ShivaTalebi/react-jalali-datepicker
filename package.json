@@ -1,7 +1,7 @@
 {
   "name": "flexible-persian-datepicker",
   "version": "1.2.2",
-  "description": "Flexible, responsive Jalali (Solar Hijri) datepicker for React with editable inputs, custom formats, disabled ranges and bundled Persian font.",
+  "description": "Flexible React datepicker for Jalali (Shamsi), Islamic Hijri and Gregorian calendars with TypeScript, editable inputs and responsive UI.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -16,6 +16,7 @@
   },
   "files": [
     "dist",
+    "docs/assets",
     "README.md",
     "LICENSE"
   ],
@@ -30,6 +31,10 @@
     "jalali",
     "shamsi",
     "solar-hijri",
+    "islamic-hijri",
+    "hijri-datepicker",
+    "gregorian",
+    "multi-calendar",
     "persian",
     "datepicker",
     "persian-datepicker",
@@ -41,18 +46,18 @@
     "react-dom": ">=18"
   },
   "dependencies": {
-    "react-date-object": "^2.1.9",
-    "zaman": "^2.1.1"
+    "react-date-object": "^2.1.9"
   },
   "devDependencies": {
-    "copyfiles": "^2.4.1",
     "@types/react": "^18.3.26",
     "@types/react-dom": "^18.3.7",
+    "copyfiles": "^2.4.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
   },
   "scripts": {
     "build": "tsup",
+    "test": "npm run build && node --test tests/calendar.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "repository": {

@@ -1,7 +1,13 @@
-import DateObject from "react-date-object";
-import persian from "react-date-object/calendars/persian.js";
+import {
+  CALENDAR_MONTHS,
+  fromCalendarParts,
+  toCalendarObject,
+  type CalendarLocale,
+  type CalendarSystem,
+  type IslamicDateAdjustment,
+} from "./calendar";
 
-export type JalaliDisplayFormat =
+export type CalendarDisplayFormat =
   | "YYYY-MM-DD"
   | "YYYY/MM/DD"
   | "DD/MM/YYYY"
@@ -10,93 +16,59 @@ export type JalaliDisplayFormat =
   | "dddd, DD MMMM YYYY"
   | "dddd DD MMMM YYYY";
 
-export type JalaliFormatLocale = "fa" | "en";
+export type JalaliDisplayFormat = CalendarDisplayFormat;
+export type JalaliFormatLocale = CalendarLocale;
+
+export type CalendarFormatOptions = {
+  calendar?: CalendarSystem;
+  locale?: CalendarLocale;
+  islamicDateAdjustment?: IslamicDateAdjustment;
+};
 
 const pad2 = (value: number) => String(value).padStart(2, "0");
-
-const PERSIAN_MONTHS = [
-  "فروردین",
-  "اردیبهشت",
-  "خرداد",
-  "تیر",
-  "مرداد",
-  "شهریور",
-  "مهر",
-  "آبان",
-  "آذر",
-  "دی",
-  "بهمن",
-  "اسفند",
-] as const;
-
 const normalizeDigits = (value: string) =>
   value
     .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
     .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
 
-function createJalaliDate(year: number, month: number, day: number) {
-  if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const result = new DateObject({ calendar: persian, year, month, day });
-  if (
-    result.year !== year ||
-    result.month.number !== month ||
-    result.day !== day
-  ) {
-    return null;
-  }
-  return result.toDate();
-}
+const WEEKDAY_NAMES: Record<CalendarLocale, readonly string[]> = {
+  fa: ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه"],
+  en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+};
 
-/**
- * Formats a JavaScript Date using the Jalali calendar.
- *
- * Supported tokens: YYYY, MM, DD, MMM, MMMM and dddd.
- * Numeric output intentionally uses Latin digits so it can be sent to APIs
- * and displayed consistently. Month and weekday labels follow `locale`.
- */
-export function formatJalaliDate(
+export function formatCalendarDate(
   date: Date | null | undefined,
-  format: JalaliDisplayFormat = "YYYY-MM-DD",
-  locale: JalaliFormatLocale = "fa"
+  format: CalendarDisplayFormat = "YYYY-MM-DD",
+  options: CalendarFormatOptions = {}
 ): string {
   if (!date || Number.isNaN(date.getTime())) return "";
-
-  const jalali = new DateObject({ date, calendar: persian });
-  const monthName = new Intl.DateTimeFormat(
-    locale === "fa" ? "fa-IR-u-ca-persian" : "en-US-u-ca-persian",
-    { month: "long" }
-  ).format(date);
-  const weekdayName = new Intl.DateTimeFormat(
-    locale === "fa" ? "fa-IR-u-ca-persian" : "en-US-u-ca-persian",
-    { weekday: "long" }
-  ).format(date);
-
+  const calendar = options.calendar ?? "jalali";
+  const locale = calendar === "gregorian" ? "en" : (options.locale ?? "fa");
+  const adjustment = options.islamicDateAdjustment ?? (calendar === "islamic" ? 1 : 0);
+  const object = toCalendarObject(date, calendar, locale, adjustment);
+  const monthName = CALENDAR_MONTHS[calendar][locale][object.month.number - 1];
   const tokens: Record<string, string> = {
-    YYYY: String(jalali.year),
+    YYYY: String(object.year),
     MMMM: monthName,
     MMM: monthName,
-    MM: pad2(jalali.month.number),
-    DD: pad2(jalali.day),
-    dddd: weekdayName,
+    MM: pad2(object.month.number),
+    DD: pad2(object.day),
+    dddd: WEEKDAY_NAMES[locale][date.getDay()],
   };
-
-  const output = format.replace(
-    /dddd|MMMM|YYYY|MMM|MM|DD/g,
-    (token) => tokens[token]
-  );
-
+  const output = format.replace(/dddd|MMMM|YYYY|MMM|MM|DD/g, (token) => tokens[token]);
   return locale === "fa" ? output.replace(/,/g, "،") : output;
 }
 
-/** Parses a formatted Jalali date back into a JavaScript Date. */
-export function parseJalaliDate(
+export function parseCalendarDate(
   input: string,
-  format: JalaliDisplayFormat,
-  locale: JalaliFormatLocale = "fa"
+  format: CalendarDisplayFormat,
+  options: CalendarFormatOptions = {}
 ): Date | null {
   const value = normalizeDigits(input).trim();
   if (!value) return null;
-
+  const calendar = options.calendar ?? "jalali";
+  const locale = calendar === "gregorian" ? "en" : (options.locale ?? "fa");
+  const adjustment = options.islamicDateAdjustment ?? (calendar === "islamic" ? 1 : 0);
   let year = 0;
   let month = 0;
   let day = 0;
@@ -113,42 +85,38 @@ export function parseJalaliDate(
     if (match) [, day, month, year] = match.map(Number);
   } else {
     let text = value.replace(/،/g, ",");
-    if (format.startsWith("dddd")) {
-      text = text.replace(/^\S+[,]?\s+/, "");
-    }
-
+    if (format.startsWith("dddd")) text = text.replace(/^\S+[,]?\s+/, "");
     const monthFirst = format === "MMMM DD, YYYY";
     match = monthFirst
-      ? text.match(/^(\S+)\s+(\d{1,2})[,]?\s+(\d{4})$/)
-      : text.match(/^(\d{1,2})\s+(\S+)\s+(\d{4})$/);
-
+      ? text.match(/^(.*?)\s+(\d{1,2})[,]?\s+(\d{4})$/)
+      : text.match(/^(\d{1,2})\s+(.*?)\s+(\d{4})$/);
     if (match) {
-      const monthLabel = monthFirst ? match[1] : match[2];
+      const monthLabel = (monthFirst ? match[1] : match[2]).trim().toLowerCase();
       day = Number(monthFirst ? match[2] : match[1]);
       year = Number(match[3]);
-
-      if (locale === "fa") {
-        month = PERSIAN_MONTHS.indexOf(
-          monthLabel as (typeof PERSIAN_MONTHS)[number]
-        ) + 1;
-      } else {
-        const englishMonths = PERSIAN_MONTHS.map((_, index) => {
-          const sample = new DateObject({
-            calendar: persian,
-            year: 1400,
-            month: index + 1,
-            day: 1,
-          }).toDate();
-          return new Intl.DateTimeFormat("en-US-u-ca-persian", {
-            month: "long",
-          }).format(sample);
-        });
-        month = englishMonths.findIndex(
-          (name) => name.toLowerCase() === monthLabel.toLowerCase()
-        ) + 1;
-      }
+      month = CALENDAR_MONTHS[calendar][locale].findIndex(
+        (name) => name.toLowerCase() === monthLabel
+      ) + 1;
     }
   }
 
-  return match ? createJalaliDate(year, month, day) : null;
+  return match
+    ? fromCalendarParts(year, month, day, calendar, locale, adjustment)
+    : null;
+}
+
+export function formatJalaliDate(
+  date: Date | null | undefined,
+  format: JalaliDisplayFormat = "YYYY-MM-DD",
+  locale: JalaliFormatLocale = "fa"
+): string {
+  return formatCalendarDate(date, format, { calendar: "jalali", locale });
+}
+
+export function parseJalaliDate(
+  input: string,
+  format: JalaliDisplayFormat,
+  locale: JalaliFormatLocale = "fa"
+): Date | null {
+  return parseCalendarDate(input, format, { calendar: "jalali", locale });
 }

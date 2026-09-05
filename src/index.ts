@@ -2,6 +2,7 @@ import { ensureStylesInjected } from "./styles/auto-css";
 ensureStylesInjected(); // یک‌بار تزریق خودکار استایل‌ها
 
 export { default as JalaliDatepicker } from "./components/JalaliDatepicker";
+export { default as PersianDatepicker } from "./components/JalaliDatepicker";
 export type {
   JalaliDatepickerProps,
   JalaliDisabledDateRange,
@@ -17,8 +18,20 @@ export type {
 
 export { ArrowDownCombo, TickCircle } from "./components/icons";
 
-export { formatJalaliDate, parseJalaliDate } from "./utils/format";
+export {
+  formatCalendarDate,
+  parseCalendarDate,
+  formatJalaliDate,
+  parseJalaliDate,
+} from "./utils/format";
 export type {
+  CalendarDisplayFormat,
+  CalendarFormatOptions,
   JalaliDisplayFormat,
   JalaliFormatLocale,
 } from "./utils/format";
+export type {
+  CalendarSystem,
+  CalendarLocale,
+  IslamicDateAdjustment,
+} from "./utils/calendar";
