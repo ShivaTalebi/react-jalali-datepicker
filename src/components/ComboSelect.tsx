@@ -185,15 +185,23 @@ function ComboSelectImpl(props: ComboSelectProps) {
     [disabled]
   );
 
-  // outside click
+  // Close on every pointer interaction outside this combobox. Pointer events
+  // cover mouse, touch and pen, and capture mode makes this reliable even when
+  // a host component stops propagation during its own click handling.
   React.useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node))
-        close();
+    const onPointerDown = (event: PointerEvent) => {
+      const root = rootRef.current;
+      const target = event.target;
+      if (!root || !(target instanceof Node)) return;
+
+      const interactionIsInside =
+        root.contains(target) || event.composedPath().includes(root);
+      if (!interactionIsInside) close();
     };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () =>
+      document.removeEventListener("pointerdown", onPointerDown, true);
   }, [open, close]);
 
   // placement auto
