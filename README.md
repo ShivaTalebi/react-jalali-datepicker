@@ -4,6 +4,15 @@ A flexible, responsive and self-contained **Jalali (Solar Hijri / Shamsi) datepi
 
 Attach it to an `input`, `button`, `span`, or any custom element. The package includes its own Persian font and styles, supports typed dates and multiple output formats, and does not depend on the host application's UI framework.
 
+## Preview
+
+![Flexible Persian DatePicker preview](./docs/assets/calendar-preview.png)
+
+## What's new in v1.2.3
+
+- Month and year dropdowns now close when the user clicks anywhere outside the open combobox
+- Added a clear calendar preview to the npm and GitHub documentation
+
 ## What's new in v1.2.1
 
 - Unified width-driven responsive sizing for every calendar instance

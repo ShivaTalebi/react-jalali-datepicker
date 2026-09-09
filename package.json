@@ -1,6 +1,6 @@
 {
   "name": "flexible-persian-datepicker",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Flexible, responsive Jalali (Solar Hijri) datepicker for React with editable inputs, custom formats, disabled ranges and bundled Persian font.",
   "license": "MIT",
   "type": "module",
@@ -16,6 +16,7 @@
   },
   "files": [
     "dist",
+    "docs/assets",
     "README.md",
     "LICENSE"
   ],
