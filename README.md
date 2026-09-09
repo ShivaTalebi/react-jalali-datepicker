@@ -1,10 +1,10 @@
-# Flexible Persian DatePicker — React Jalali (Shamsi) Date Picker
+# Flexible Persian DatePicker — React Multi-Calendar DatePicker
 
 [![npm version](https://img.shields.io/npm/v/flexible-persian-datepicker.svg)](https://www.npmjs.com/package/flexible-persian-datepicker)
 [![npm downloads](https://img.shields.io/npm/dm/flexible-persian-datepicker.svg)](https://www.npmjs.com/package/flexible-persian-datepicker)
 [![license](https://img.shields.io/npm/l/flexible-persian-datepicker.svg)](./LICENSE)
 
-**Flexible Persian DatePicker** is a responsive, self-contained multi-calendar datepicker for React 18+. It supports Jalali (Shamsi / Solar Hijri), Islamic Hijri and Gregorian calendars and includes full TypeScript declarations.
+**Flexible Persian DatePicker** is a responsive, self-contained datepicker for React 18+. One component supports **Jalali (Shamsi / Solar Hijri)**, **Islamic Hijri** and **Gregorian** calendars and includes complete TypeScript declarations.
 
 Use it as a **Shamsi Calendar** on an editable `input`, `button`, `span`, or any custom HTML element. The package includes its own Persian font and isolated styles, supports multiple Solar Hijri date formats, and does not depend on the host application's UI framework.
 
@@ -16,7 +16,13 @@ Use it as a **Shamsi Calendar** on an editable `input`, `button`, `span`, or any
 
 ## Preview
 
-![Flexible Persian DatePicker calendar preview](./docs/assets/calendar-preview.png)
+| Jalali / Shamsi | Islamic Hijri | Gregorian |
+| --- | --- | --- |
+| ![Jalali Shamsi calendar](./docs/assets/calendar-jalali.png) | ![Islamic Hijri calendar](./docs/assets/calendar-islamic.png) | ![Gregorian calendar](./docs/assets/calendar-gregorian.png) |
+
+All screenshots above come directly from the test project. The UI, direction,
+digits, month names, weekday names and default action labels are selected
+automatically for the active calendar.
 
 ## Features and benefits
 
@@ -58,36 +64,74 @@ npm install flexible-persian-datepicker
 
 React and React DOM 18 or newer are peer dependencies.
 
-## Basic usage
+## Quick start
+
+The value exchanged with your application is always a standard JavaScript
+`Date | null`. Set `calendar` to choose how that value is displayed and edited:
+
+| Calendar | `calendar` value | Default UI |
+| --- | --- | --- |
+| Jalali / Shamsi | `"jalali"` | Persian, RTL and Persian digits |
+| Islamic Hijri | `"islamic"` | Arabic, RTL and Arabic-Indic digits |
+| Gregorian | `"gregorian"` | English, LTR and Latin digits |
+
+This reusable input works with every supported calendar:
 
 ```tsx
 import { useRef, useState } from "react";
 import {
   JalaliDatepicker,
-  formatJalaliDate,
+  formatCalendarDate,
+  parseCalendarDate,
+  type CalendarDisplayFormat,
+  type CalendarSystem,
 } from "flexible-persian-datepicker";
 
-export default function BasicDatepicker() {
+type CalendarInputProps = {
+  calendar: CalendarSystem;
+  format?: CalendarDisplayFormat;
+  label?: string;
+  showActionButtons?: boolean;
+};
+
+export function CalendarInput({
+  calendar,
+  format = "YYYY/MM/DD",
+  label,
+  showActionButtons = true,
+}: CalendarInputProps) {
   const anchorRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState<Date | null>(null);
+  const [text, setText] = useState("");
+
+  const commit = (next: Date | null) => {
+    setDate(next);
+    setText(formatCalendarDate(next, format, { calendar }));
+  };
 
   return (
     <>
       <input
         ref={anchorRef}
-        readOnly
-        value={formatJalaliDate(date, "YYYY/MM/DD", "fa")}
-        placeholder="انتخاب تاریخ"
-        onClick={() => setOpen(true)}
+        value={text}
+        placeholder={format}
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          const nextText = event.target.value;
+          setText(nextText);
+          setDate(parseCalendarDate(nextText, format, { calendar }));
+        }}
       />
 
       <JalaliDatepicker
+        calendar={calendar}
         open={open}
         anchorRef={anchorRef}
         value={date}
-        label="تاریخ شروع"
-        onConfirm={setDate}
+        label={label}
+        showActionButtons={showActionButtons}
+        onConfirm={commit}
         onClose={() => setOpen(false)}
       />
     </>
@@ -95,7 +139,35 @@ export default function BasicDatepicker() {
 }
 ```
 
-`onConfirm` receives a normal JavaScript `Date | null`. Use `formatJalaliDate` to display it as a Jalali date or send the `Date` to your API.
+Use it for each calendar as follows:
+
+```tsx
+// Jalali / Shamsi — Persian UI and 1405/05/24 output
+<CalendarInput
+  calendar="jalali"
+  format="YYYY/MM/DD"
+  label="تاریخ شروع"
+/>
+
+// Islamic Hijri — Arabic UI and textual month name
+<CalendarInput
+  calendar="islamic"
+  format="DD MMM YYYY"
+  label="تاريخ العقد"
+/>
+
+// Gregorian — English UI, Latin digits and Confirm/Cancel footer
+<CalendarInput
+  calendar="gregorian"
+  format="dddd, DD MMMM YYYY"
+  label="Start date"
+  showActionButtons
+/>
+```
+
+`onConfirm` receives a normal JavaScript `Date | null`, regardless of the
+selected calendar. This makes it safe to store one value in state, send it to
+an API, and display it in any supported calendar system.
 
 ## Jalali, Islamic and Gregorian calendars
 
@@ -166,6 +238,12 @@ calendar modes:
 ```
 
 Islamic mode uses a deterministic Civil Hijri calculation and applies a default `+1` day adjustment to match commonly announced dates. Lunar calendars can differ by country, timezone and moon sighting. Override the adjustment per instance when required:
+
+With the default `locale="fa"`, Islamic mode presents an Arabic RTL interface:
+Arabic month and weekday names, meaningful single-letter weekday headings
+(`س، ح، ن، ث، ر، خ، ج`), Arabic-Indic calendar digits and Arabic default action
+texts. Pass `locale="en"` for the English Islamic interface. Per-instance
+`labels` still override all default action texts.
 
 ```tsx
 <PersianDatepicker

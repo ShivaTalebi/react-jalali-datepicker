@@ -26,6 +26,9 @@
 [data-locale="fa"] {
   direction: rtl;
 }
+[data-locale="ar"] {
+  direction: rtl;
+}
 [data-locale="en"] {
   direction: ltr;
 }

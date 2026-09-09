@@ -2,6 +2,7 @@ import * as React from "react";
 import { useMemo } from "react";
 import {
   WEEKDAYS,
+  ISLAMIC_WEEKDAYS_AR,
   addLocalDays,
   fromCalendarParts,
   toCalendarObject,
@@ -28,8 +29,12 @@ const sameLocalDay = (a: Date | null, b: Date | null) =>
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 
-const digits = (value: number, locale: CalendarLocale) =>
-  locale === "fa" ? value.toLocaleString("fa-IR", { useGrouping: false }) : String(value);
+const digits = (value: number, calendar: CalendarSystem, locale: CalendarLocale) =>
+  calendar === "islamic" && locale === "fa"
+    ? value.toLocaleString("ar-EG-u-nu-arab", { useGrouping: false })
+    : locale === "fa"
+      ? value.toLocaleString("fa-IR", { useGrouping: false })
+      : String(value);
 
 export function CalendarGrid({
   calendar,
@@ -68,7 +73,10 @@ export function CalendarGrid({
   return (
     <div className="rjd-calendar-grid" role="grid" aria-label="calendar">
       <div className="rjd-weekdays" role="row">
-        {WEEKDAYS[locale].map((weekday) => (
+        {(calendar === "islamic" && locale === "fa"
+          ? ISLAMIC_WEEKDAYS_AR
+          : WEEKDAYS[locale]
+        ).map((weekday) => (
           <span key={weekday} role="columnheader">{weekday}</span>
         ))}
       </div>
@@ -103,7 +111,7 @@ export function CalendarGrid({
                 target?.[index + delta]?.focus();
               }}
             >
-              {digits(day, locale)}
+              {digits(day, calendar, locale)}
             </button>
           );
         })}

@@ -100,8 +100,16 @@ function formatSelectedHeader(
   });
   const firstSpace = full.indexOf(" ");
   const weekday = firstSpace >= 0 ? full.slice(0, firstSpace) : full;
-  const datePart = firstSpace >= 0 ? full.slice(firstSpace + 1).replace(/\s+\d{4}$/, "") : "";
-  return `${weekday.trim().charAt(0)}${locale === "fa" ? "،" : ","} ${datePart}`;
+  let datePart = firstSpace >= 0 ? full.slice(firstSpace + 1).replace(/\s+\d{4}$/, "") : "";
+  const islamicInitials = ["ح", "ن", "ث", "ر", "خ", "ج", "س"] as const;
+  const initial =
+    calendar === "islamic" && locale === "fa"
+      ? islamicInitials[d.getDay()]
+      : weekday.trim().charAt(0);
+  if (calendar === "islamic" && locale === "fa") {
+    datePart = datePart.replace(/[0-9]/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[Number(digit)]);
+  }
+  return `${initial}${locale === "fa" ? "،" : ","} ${datePart}`;
 }
 
 function isSameDay(a: Date | null, b: Date | null) {
@@ -142,14 +150,15 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
   const effectiveLocale: "fa" | "en" =
     calendar === "gregorian" ? "en" : locale;
   const englishUi = effectiveLocale === "en";
+  const arabicUi = calendar === "islamic" && effectiveLocale === "fa";
 
   const t = {
-    titleFrom: L.titleFrom ?? (englishUi ? "From date" : "از تاریخ"),
-    titleTo: L.titleTo ?? (englishUi ? "To date" : "تا تاریخ"),
-    confirm: L.confirm ?? (englishUi ? "Confirm" : "تایید"),
-    cancel: L.cancel ?? (englishUi ? "Cancel" : "انصراف"),
-    chooseDate: L.chooseDate ?? (englishUi ? "Choose date" : "انتخاب تاریخ"),
-    today: L.today ?? (englishUi ? "Today" : "امروز"),
+    titleFrom: L.titleFrom ?? (englishUi ? "From date" : arabicUi ? "من تاريخ" : "از تاریخ"),
+    titleTo: L.titleTo ?? (englishUi ? "To date" : arabicUi ? "إلى تاريخ" : "تا تاریخ"),
+    confirm: L.confirm ?? (englishUi ? "Confirm" : arabicUi ? "تأكيد" : "تایید"),
+    cancel: L.cancel ?? (englishUi ? "Cancel" : arabicUi ? "إلغاء" : "انصراف"),
+    chooseDate: L.chooseDate ?? (englishUi ? "Choose date" : arabicUi ? "اختر التاريخ" : "انتخاب تاریخ"),
+    today: L.today ?? (englishUi ? "Today" : arabicUi ? "اليوم" : "امروز"),
   };
   const resolvedLabel =
     typeof label === "string" && label === "از تاریخ"
@@ -229,8 +238,14 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     [calendar, effectiveLocale]
   );
   const yearOptions: CSOption[] = useMemo(
-    () => years.map((y) => ({ id: y, label: String(y), value: String(y) })),
-    [years]
+    () => years.map((y) => ({
+      id: y,
+      label: arabicUi
+        ? y.toLocaleString("ar-EG-u-nu-arab", { useGrouping: false })
+        : String(y),
+      value: String(y),
+    })),
+    [years, arabicUi]
   );
 
   const draftMatchesView = useMemo(() => {
@@ -691,8 +706,8 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     <div
       ref={popRef}
       dir={effectiveLocale === "fa" ? "rtl" : "ltr"}
-      lang={effectiveLocale === "fa" ? "fa" : "en"}
-      data-locale={effectiveLocale}
+      lang={arabicUi ? "ar" : effectiveLocale === "fa" ? "fa" : "en"}
+      data-locale={arabicUi ? "ar" : effectiveLocale}
       className={`rjd-root calendar-header zcal-custom${
         className ? ` ${className}` : ""
       }`}
@@ -743,7 +758,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         <ComboSelect
           options={monthOptions}
           dir={effectiveLocale === "fa" ? "rtl" : "ltr"}
-          placeholderLabel={effectiveLocale === "fa" ? "ماه" : "Month"}
+          placeholderLabel={effectiveLocale === "fa" ? (arabicUi ? "الشهر" : "ماه") : "Month"}
           hasPlaceholder={false}
           selectedId={viewMonth}
           onChange={(e) => setViewMonth(Number(e.id))}
@@ -755,7 +770,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         <ComboSelect
           options={yearOptions}
           dir="ltr"
-          placeholderLabel={effectiveLocale === "fa" ? "سال" : "Year"}
+          placeholderLabel={effectiveLocale === "fa" ? (arabicUi ? "السنة" : "سال") : "Year"}
           hasPlaceholder={false}
           selectedId={viewYear}
           onChange={(e) => setViewYear(Number(e.id))}

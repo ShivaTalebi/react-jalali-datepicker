@@ -36,6 +36,10 @@ const WEEKDAY_NAMES: Record<CalendarLocale, readonly string[]> = {
   en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
 };
 
+const ISLAMIC_WEEKDAY_NAMES_AR = [
+  "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت",
+] as const;
+
 export function formatCalendarDate(
   date: Date | null | undefined,
   format: CalendarDisplayFormat = "YYYY-MM-DD",
@@ -53,7 +57,10 @@ export function formatCalendarDate(
     MMM: monthName,
     MM: pad2(object.month.number),
     DD: pad2(object.day),
-    dddd: WEEKDAY_NAMES[locale][date.getDay()],
+    dddd:
+      calendar === "islamic" && locale === "fa"
+        ? ISLAMIC_WEEKDAY_NAMES_AR[date.getDay()]
+        : WEEKDAY_NAMES[locale][date.getDay()],
   };
   const output = format.replace(/dddd|MMMM|YYYY|MMM|MM|DD/g, (token) => tokens[token]);
   return locale === "fa" ? output.replace(/,/g, "،") : output;

@@ -31,8 +31,8 @@ export const CALENDAR_MONTHS: Record<
   },
   islamic: {
     fa: [
-      "محرم", "صفر", "ربیع‌الاول", "ربیع‌الثانی", "جمادی‌الاول", "جمادی‌الثانی",
-      "رجب", "شعبان", "رمضان", "شوال", "ذی‌القعده", "ذی‌الحجه",
+      "محرم", "صفر", "ربيع الأول", "ربيع الآخر", "جمادى الأولى", "جمادى الآخرة",
+      "رجب", "شعبان", "رمضان", "شوال", "ذو القعدة", "ذو الحجة",
     ],
     en: [
       "Muharram", "Safar", "Rabi al-Awwal", "Rabi al-Thani", "Jumada al-Awwal",
@@ -56,6 +56,9 @@ export const WEEKDAYS: Record<CalendarLocale, readonly string[]> = {
   fa: ["ش", "ی", "د", "س", "چ", "پ", "ج"],
   en: ["Sa", "Su", "Mo", "Tu", "We", "Th", "Fr"],
 };
+
+/** Meaningful Arabic weekday initials in Saturday-first calendar order. */
+export const ISLAMIC_WEEKDAYS_AR = ["س", "ح", "ن", "ث", "ر", "خ", "ج"] as const;
 
 export function addLocalDays(date: Date, days: number): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, 12);

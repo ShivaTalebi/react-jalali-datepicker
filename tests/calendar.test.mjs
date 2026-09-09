@@ -44,7 +44,7 @@ test("formats and parses Islamic Civil dates without losing a day", () => {
   assert.deepEqual(ymd(parsed), [2024, 7, 7]);
 });
 
-test("supports Persian Islamic month names", () => {
+test("supports Arabic Islamic month names", () => {
   const date = parseCalendarDate("1 رمضان 1446", "DD MMM YYYY", {
     calendar: "islamic",
     locale: "fa",
@@ -53,6 +53,23 @@ test("supports Persian Islamic month names", () => {
   assert.equal(
     formatCalendarDate(date, "DD MMM YYYY", { calendar: "islamic", locale: "fa" }),
     "01 رمضان 1446"
+  );
+});
+
+test("renders the Persian-locale Islamic calendar with Arabic vocabulary", () => {
+  const date = new Date(2024, 6, 7, 12);
+  assert.equal(
+    formatCalendarDate(date, "dddd, DD MMMM YYYY", {
+      calendar: "islamic",
+      locale: "fa",
+    }),
+    "الأحد، 01 محرم 1446"
+  );
+  assert.ok(
+    parseCalendarDate("01 ربيع الأول 1446", "DD MMM YYYY", {
+      calendar: "islamic",
+      locale: "fa",
+    })
   );
 });
 
