@@ -18,7 +18,7 @@ Use it as a **Shamsi Calendar** on an editable `input`, `button`, `span`, or any
 
 | Jalali / Shamsi | Islamic Hijri | Gregorian |
 | --- | --- | --- |
-| ![Jalali Shamsi calendar](./docs/assets/calendar-jalali.png) | ![Islamic Hijri calendar](./docs/assets/calendar-islamic.png) | ![Gregorian calendar](./docs/assets/calendar-gregorian.png) |
+| ![Jalali Shamsi calendar](https://raw.githubusercontent.com/ShivaTalebi/react-jalali-datepicker/feature/flexible-multi-calendar-datepicker/docs/assets/calendar-jalali.png) | ![Islamic Hijri calendar](https://raw.githubusercontent.com/ShivaTalebi/react-jalali-datepicker/feature/flexible-multi-calendar-datepicker/docs/assets/calendar-islamic.png) | ![Gregorian calendar](https://raw.githubusercontent.com/ShivaTalebi/react-jalali-datepicker/feature/flexible-multi-calendar-datepicker/docs/assets/calendar-gregorian.png) |
 
 All screenshots above come directly from the test project. The UI, direction,
 digits, month names, weekday names and default action labels are selected
