@@ -1,8 +1,8 @@
 # Flexible Persian DatePicker — React Multi-Calendar DatePicker
 
-[![npm version](https://img.shields.io/npm/v/flexible-persian-datepicker.svg)](https://www.npmjs.com/package/flexible-persian-datepicker)
-[![npm downloads](https://img.shields.io/npm/dm/flexible-persian-datepicker.svg)](https://www.npmjs.com/package/flexible-persian-datepicker)
-[![license](https://img.shields.io/npm/l/flexible-persian-datepicker.svg)](./LICENSE)
+[![npm version](https://img.shields.io/npm/v/flexible-multi-calendar-datepicker.svg)](https://www.npmjs.com/package/flexible-multi-calendar-datepicker)
+[![npm downloads](https://img.shields.io/npm/dm/flexible-multi-calendar-datepicker.svg)](https://www.npmjs.com/package/flexible-multi-calendar-datepicker)
+[![license](https://img.shields.io/npm/l/flexible-multi-calendar-datepicker.svg)](./LICENSE)
 
 **Flexible Persian DatePicker** is a responsive, self-contained datepicker for React 18+. One component supports **Jalali (Shamsi / Solar Hijri)**, **Islamic Hijri** and **Gregorian** calendars and includes complete TypeScript declarations.
 
@@ -10,7 +10,7 @@ Use it as a **Shamsi Calendar** on an editable `input`, `button`, `span`, or any
 
 ## Package links
 
-- [Install Flexible Persian DatePicker from npm](https://www.npmjs.com/package/flexible-persian-datepicker)
+- [Install Flexible Multi-Calendar DatePicker from npm](https://www.npmjs.com/package/flexible-multi-calendar-datepicker)
 - [Source code and documentation on GitHub](https://github.com/shivatalebi/react-jalali-datepicker)
 - [Report an issue or request a feature](https://github.com/shivatalebi/react-jalali-datepicker/issues)
 
@@ -59,7 +59,7 @@ automatically for the active calendar.
 ## Installation
 
 ```bash
-npm install flexible-persian-datepicker
+npm install flexible-multi-calendar-datepicker
 ```
 
 React and React DOM 18 or newer are peer dependencies.
@@ -85,7 +85,7 @@ import {
   parseCalendarDate,
   type CalendarDisplayFormat,
   type CalendarSystem,
-} from "flexible-persian-datepicker";
+} from "flexible-multi-calendar-datepicker";
 
 type CalendarInputProps = {
   calendar: CalendarSystem;
@@ -179,7 +179,7 @@ import {
   formatCalendarDate,
   parseCalendarDate,
   type CalendarSystem,
-} from "flexible-persian-datepicker";
+} from "flexible-multi-calendar-datepicker";
 
 const calendar: CalendarSystem = "islamic"; // jalali | islamic | gregorian
 
@@ -297,7 +297,7 @@ import {
   formatJalaliDate,
   parseJalaliDate,
   type JalaliDisplayFormat,
-} from "flexible-persian-datepicker";
+} from "flexible-multi-calendar-datepicker";
 
 const format: JalaliDisplayFormat = "YYYY/MM/DD";
 
@@ -415,7 +415,7 @@ Pass any number of inclusive ranges. Disabled dates remain visible in light purp
 import {
   parseJalaliDate,
   type JalaliDisabledDateRange,
-} from "flexible-persian-datepicker";
+} from "flexible-multi-calendar-datepicker";
 
 const disabledDateRanges: JalaliDisabledDateRange[] = [
   {
