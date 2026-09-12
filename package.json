@@ -1,6 +1,6 @@
 {
   "name": "flexible-multi-calendar-datepicker",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Flexible React datepicker for Jalali (Shamsi), Islamic Hijri and Gregorian calendars with TypeScript, editable inputs and responsive UI.",
   "license": "MIT",
   "type": "module",

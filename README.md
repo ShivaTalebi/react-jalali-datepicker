@@ -10,6 +10,7 @@ Use it as a **Shamsi Calendar** on an editable `input`, `button`, `span`, or any
 
 ## Package links
 
+- [Open the interactive Jalali, Islamic Hijri and Gregorian demo](https://shivatalebi.github.io/react-jalali-datepicker-test/)
 - [Install Flexible Multi-Calendar DatePicker from npm](https://www.npmjs.com/package/flexible-multi-calendar-datepicker)
 - [Source code and documentation on GitHub](https://github.com/shivatalebi/react-jalali-datepicker)
 - [Report an issue or request a feature](https://github.com/shivatalebi/react-jalali-datepicker/issues)

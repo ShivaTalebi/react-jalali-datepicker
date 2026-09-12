@@ -4,7 +4,7 @@ This backlog focuses on increasing real-world adoption, improving trust, and mak
 
 ## High priority
 
-- [ ] Publish a permanent interactive demo covering Jalali, Gregorian, and Islamic Hijri calendars.
+- [ ] Publish permanent interactive demos for both branches/packages: a Persian-only demo from `main`, and a Jalali/Gregorian/Islamic Hijri demo from `feature/flexible-multi-calendar-datepicker`.
 - [ ] Add copy-ready examples for React JavaScript, React TypeScript, Vite, and Next.js.
 - [ ] Add automated regression tests for selection, manual input, confirmation/cancellation, disabled ranges, dropdown behavior, scrolling, and responsive positioning.
 - [ ] Add accessibility coverage for keyboard navigation, focus management, ARIA labels, and screen readers.
