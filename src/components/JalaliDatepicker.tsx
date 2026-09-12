@@ -167,43 +167,6 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         ? t.titleTo
         : label;
 
-  /* On touch/mobile devices the input is a calendar trigger, not a software-
-     keyboard trigger. `readOnly` preserves focus and click events (so an empty
-     or custom-styled input still opens the controlled picker) while preventing
-     the virtual keyboard from consuming the viewport. Desktop inputs retain
-     their original editable behavior. */
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return;
-    const anchorEl = (anchorRef as any)?.current as HTMLElement | null;
-    if (!(anchorEl instanceof HTMLInputElement)) return;
-
-    const input = anchorEl;
-    const originallyReadOnly = input.readOnly;
-    const mediaQuery = window.matchMedia("(pointer: fine)");
-    const syncInputMode = () => {
-      input.readOnly = mediaQuery.matches ? originallyReadOnly : true;
-    };
-
-    syncInputMode();
-    mediaQuery.addEventListener?.("change", syncInputMode);
-    return () => {
-      mediaQuery.removeEventListener?.("change", syncInputMode);
-      input.readOnly = originallyReadOnly;
-    };
-  }, [anchorRef]);
-
-  useLayoutEffect(() => {
-    if (!open || typeof window === "undefined") return;
-    if (window.matchMedia("(pointer: fine)").matches) return;
-    const anchorEl = (anchorRef as any)?.current as HTMLElement | null;
-    if (anchorEl instanceof HTMLInputElement) {
-      anchorEl.readOnly = true;
-      // Covers the rare case where the viewport changed between pointerdown
-      // and the controlled `open` update.
-      anchorEl.blur();
-    }
-  }, [open, anchorRef]);
-
   // مقدار «کامیت‌شده» (نمایش بیرونی) و درفت (نمایش داخل پاپ‌آپ)
   const [draft, setDraft] = useState<Date | null>(
     value ?? defaultValue ?? new Date()
@@ -464,36 +427,45 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
           ? popEl.offsetHeight
           : 27.5 * rootRem;
 
-      // Sizing is a pure function of viewport WIDTH, never of the trigger's
-      // position or popup content height. Every picker in the same viewport
-      // therefore has exactly the same visual width, including instances with
-      // different labels or with/without action buttons.
-      const availableHeight = Math.max(0, hostH - 2 * spacing);
-      const viewportScale = Math.max(
-        0.05,
-        Math.min(1, availableWidth / approxWidth)
-      );
-      const visualWidth = approxWidth * viewportScale;
-      const visualHeight = approxHeight * viewportScale;
-
       const anchorTopInHost = isBodyHost ? aTop - vOffTop : aTop;
       const anchorBottomInHost = isBodyHost ? aBottom - vOffTop : aBottom;
       const anchorLeftInHost = isBodyHost ? aLeft - vOffLeft : aLeft;
       const anchorRightInHost = isBodyHost ? aRight - vOffLeft : aRight;
 
       // Reserve one gap between anchor/popup and another gap at the viewport
-      // edge. Previously the edge gap was not reserved, so resizing could put
-      // the scaled popup exactly at (or beyond) the top/bottom edge.
-      const spaceBottom = hostH - anchorBottomInHost - 2 * spacing;
-      const spaceTop = anchorTopInHost - 2 * spacing;
-      const spaceRight = hostW - anchorRightInHost - 2 * spacing;
-      const spaceLeft = anchorLeftInHost - 2 * spacing;
+      // edge. These values use the visual viewport, so opening a mobile
+      // keyboard immediately reduces the real room available to the picker.
+      const spaceBottom = Math.max(
+        0,
+        hostH - anchorBottomInHost - 2 * spacing
+      );
+      const spaceTop = Math.max(0, anchorTopInHost - 2 * spacing);
+      const spaceRight = Math.max(
+        0,
+        hostW - anchorRightInHost - 2 * spacing
+      );
+      const spaceLeft = Math.max(0, anchorLeftInHost - 2 * spacing);
+
+      // Scale against both width and the larger vertical side of the anchor.
+      // This keeps an editable input visible while the software keyboard is
+      // open, and lets placement flip above/below without covering the input.
+      const availableHeight = Math.max(spaceTop, spaceBottom);
+      const viewportScale = Math.max(
+        0.05,
+        Math.min(
+          1,
+          availableWidth / approxWidth,
+          availableHeight / approxHeight
+        )
+      );
+      const visualWidth = approxWidth * viewportScale;
+      const visualHeight = approxHeight * viewportScale;
 
       const canBottom = spaceBottom >= visualHeight;
       const canTop = spaceTop >= visualHeight;
       const canRight = spaceRight >= visualWidth;
       const canLeft = spaceLeft >= visualWidth;
-      const heightFits = availableHeight >= visualHeight;
+      const heightFits = hostH - 2 * spacing >= visualHeight;
 
       if (
         forceRecomputePlacement ||

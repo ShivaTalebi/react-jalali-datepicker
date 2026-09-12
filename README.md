@@ -36,14 +36,14 @@ automatically for the active calendar.
 - Controlled and uncontrolled standard JavaScript `Date` values
 - Immediate selection or optional Confirm/Cancel workflow
 - Editable input with live calendar synchronization
-- Automatic calendar-only input behavior on touch devices without opening the software keyboard
+- Editable mobile inputs with simultaneous keyboard and calendar access
 - Reliable first-click selection after clearing an input
 - Seven display and parse formats
 - Persian, Arabic and Latin digit parsing
 - Different optional labels and UI texts for every calendar instance
 - Contextual **Today** shortcut after navigating to another day, month or year
 - Multiple inclusive disabled date ranges
-- Width-driven responsive sizing on mobile, tablet and desktop
+- Width- and height-aware responsive sizing on mobile, tablet and desktop
 - Consistent `rem`-based typography, spacing and corner radius
 - Responsive placement without covering the trigger element
 - Automatic repositioning on resize and orientation changes
