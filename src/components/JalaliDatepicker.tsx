@@ -446,10 +446,16 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       );
       const spaceLeft = Math.max(0, anchorLeftInHost - 2 * spacing);
 
-      // Scale against both width and the larger vertical side of the anchor.
-      // This keeps an editable input visible while the software keyboard is
-      // open, and lets placement flip above/below without covering the input.
-      const availableHeight = Math.max(spaceTop, spaceBottom);
+      // Size depends only on the visual viewport and the trigger's own height,
+      // never on the trigger's current scroll position. Scrolling therefore
+      // moves/flips the popup without repeatedly growing or shrinking it.
+      // Reserving the trigger height keeps room for the editable input while a
+      // mobile software keyboard reduces the visual viewport.
+      const triggerHeight = Math.max(aRect.height, 2.75 * rootRem);
+      const availableHeight = Math.max(
+        0,
+        hostH - triggerHeight - 3 * spacing
+      );
       const viewportScale = Math.max(
         0.05,
         Math.min(
@@ -472,20 +478,13 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         !placementRef.current ||
         placementRef.current === "fit"
       ) {
-        const candidates: Array<{
-          dir: Placement;
-          space: number;
-          ok: boolean;
-        }> = [
-          { dir: "bottom", space: spaceBottom, ok: canBottom },
-          { dir: "top", space: spaceTop, ok: canTop },
-          { dir: "right", space: spaceRight, ok: canRight && heightFits },
-          { dir: "left", space: spaceLeft, ok: canLeft && heightFits },
-        ];
-        const okOnes = candidates
-          .filter((c) => c.ok)
-          .sort((a, b) => b.space - a.space);
-        placementRef.current = okOnes.length ? okOnes[0].dir : "fit";
+        // Bottom is the predictable default. Flip above only when the calendar
+        // does not fit below; horizontal/fitted placement is a final fallback.
+        if (canBottom) placementRef.current = "bottom";
+        else if (canTop) placementRef.current = "top";
+        else if (canRight && heightFits) placementRef.current = "right";
+        else if (canLeft && heightFits) placementRef.current = "left";
+        else placementRef.current = "fit";
       }
 
       const clamp = (v: number, min: number, max: number) =>
