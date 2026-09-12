@@ -36,6 +36,7 @@ automatically for the active calendar.
 - Controlled and uncontrolled standard JavaScript `Date` values
 - Immediate selection or optional Confirm/Cancel workflow
 - Editable input with live calendar synchronization
+- Automatic calendar-only input behavior on touch devices without opening the software keyboard
 - Reliable first-click selection after clearing an input
 - Seven display and parse formats
 - Persian, Arabic and Latin digit parsing

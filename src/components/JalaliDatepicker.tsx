@@ -167,6 +167,43 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         ? t.titleTo
         : label;
 
+  /* On touch/mobile devices the input is a calendar trigger, not a software-
+     keyboard trigger. `readOnly` preserves focus and click events (so an empty
+     or custom-styled input still opens the controlled picker) while preventing
+     the virtual keyboard from consuming the viewport. Desktop inputs retain
+     their original editable behavior. */
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const anchorEl = (anchorRef as any)?.current as HTMLElement | null;
+    if (!(anchorEl instanceof HTMLInputElement)) return;
+
+    const input = anchorEl;
+    const originallyReadOnly = input.readOnly;
+    const mediaQuery = window.matchMedia("(pointer: fine)");
+    const syncInputMode = () => {
+      input.readOnly = mediaQuery.matches ? originallyReadOnly : true;
+    };
+
+    syncInputMode();
+    mediaQuery.addEventListener?.("change", syncInputMode);
+    return () => {
+      mediaQuery.removeEventListener?.("change", syncInputMode);
+      input.readOnly = originallyReadOnly;
+    };
+  }, [anchorRef]);
+
+  useLayoutEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    if (window.matchMedia("(pointer: fine)").matches) return;
+    const anchorEl = (anchorRef as any)?.current as HTMLElement | null;
+    if (anchorEl instanceof HTMLInputElement) {
+      anchorEl.readOnly = true;
+      // Covers the rare case where the viewport changed between pointerdown
+      // and the controlled `open` update.
+      anchorEl.blur();
+    }
+  }, [open, anchorRef]);
+
   // مقدار «کامیت‌شده» (نمایش بیرونی) و درفت (نمایش داخل پاپ‌آپ)
   const [draft, setDraft] = useState<Date | null>(
     value ?? defaultValue ?? new Date()
