@@ -216,6 +216,8 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
   const rafPos = useRef<number | null>(null);
   const rafInit1 = useRef<number | null>(null);
   const forceNextPositionRecalcRef = useRef(false);
+  const mobileScaleRef = useRef<{ scale: number; width: number } | null>(null);
+  const mobileScaleLockedRef = useRef(false);
 
   // fit-to-viewport
   const [fit, setFit] = useState<{ enabled: boolean; scale: number } | null>(
@@ -320,7 +322,27 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
     if (lastPosRef.current) setPos(lastPosRef.current);
     placementRef.current = null;
     setFit(null);
+    mobileScaleRef.current = null;
+    mobileScaleLockedRef.current = false;
   }, [open, portalContainer]);
+
+  /* Let the software keyboard finish resizing the visual viewport, then keep
+     the chosen mobile scale stable for the rest of this open session. Mobile
+     browser chrome can change visualViewport.height while scrolling; those
+     changes must reposition the picker, not resize it. */
+  useEffect(() => {
+    if (!open || typeof window === "undefined") {
+      mobileScaleRef.current = null;
+      mobileScaleLockedRef.current = false;
+      return;
+    }
+    if (!window.matchMedia("(pointer: coarse)").matches) return;
+
+    const lockTimer = window.setTimeout(() => {
+      mobileScaleLockedRef.current = true;
+    }, 500);
+    return () => window.clearTimeout(lockTimer);
+  }, [open]);
 
   /* Sync the initial open separately from later controlled value changes. */
   const openInitializedRef = useRef(false);
@@ -456,7 +478,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         0,
         hostH - triggerHeight - 3 * spacing
       );
-      const viewportScale = Math.max(
+      const calculatedScale = Math.max(
         0.05,
         Math.min(
           1,
@@ -464,6 +486,24 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
           availableHeight / approxHeight
         )
       );
+      const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+      const cachedMobileScale = mobileScaleRef.current;
+      const mobileWidthChanged =
+        !cachedMobileScale || Math.abs(cachedMobileScale.width - vw) > 8;
+      let viewportScale = calculatedScale;
+      if (coarsePointer) {
+        if (
+          mobileScaleLockedRef.current &&
+          cachedMobileScale &&
+          !mobileWidthChanged
+        ) {
+          viewportScale = cachedMobileScale.scale;
+        } else {
+          mobileScaleRef.current = { scale: calculatedScale, width: vw };
+        }
+      } else {
+        mobileScaleRef.current = null;
+      }
       const visualWidth = approxWidth * viewportScale;
       const visualHeight = approxHeight * viewportScale;
 
