@@ -654,7 +654,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
   /* outside close + ESC => مثل Cancel عمل کند */
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: PointerEvent) => {
+    const onDoc = (e: MouseEvent) => {
       const t = e.target as Node;
       const targetElement =
         t.nodeType === Node.ELEMENT_NODE
@@ -689,10 +689,13 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         onClose();
       }
     };
-    document.addEventListener("pointerdown", onDoc, true);
+    // Close only after a genuine click/tap has completed. On touch screens a
+    // swipe begins with `pointerdown`; closing at that point incorrectly
+    // dismissed the picker before the browser could recognise page scrolling.
+    document.addEventListener("click", onDoc, true);
     window.addEventListener("keydown", onKey, true);
     return () => {
-      document.removeEventListener("pointerdown", onDoc, true);
+      document.removeEventListener("click", onDoc, true);
       window.removeEventListener("keydown", onKey, true);
     };
   }, [open, onClose, anchorRef]);
