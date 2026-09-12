@@ -46,7 +46,7 @@ automatically for the active calendar.
 - Consistent `rem`-based typography, spacing and corner radius
 - Responsive placement without covering the trigger element
 - Automatic repositioning on resize and orientation changes
-- Safe closing on page or container scroll without breaking internal combobox scrolling
+- Stays open and tracks its trigger during page, container and mobile visual-viewport scrolling
 - Portal rendering to avoid clipping by parent containers
 - Outside-click and Escape-key closing
 - Seven-column day alignment with or without the optional action footer

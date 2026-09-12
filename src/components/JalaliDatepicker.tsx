@@ -374,12 +374,10 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       const vOffLeft = (vv?.offsetLeft ?? 0) | 0;
       const vOffTop = (vv?.offsetTop ?? 0) | 0;
 
-      // A responsive reflow can move the trigger completely outside the
-      // viewport while the popup is open (especially when the page is already
-      // scrolled). Keeping a scaled popup visible in that situation detaches it
-      // from its trigger and makes it float over unrelated content. Match
-      // common datepicker behavior and close until the trigger is visible and
-      // the consumer opens it again.
+      // Scrolling or opening a mobile keyboard can move the trigger outside
+      // the visual viewport for a moment. Keep the picker logically open but
+      // move its popup off-screen until the trigger is visible again. Calling
+      // onClose here made ordinary page/keyboard scrolling cancel the picker.
       const anchorOutsideViewport =
         aRect.bottom <= vOffTop ||
         aRect.top >= vOffTop + vh ||
@@ -387,7 +385,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         aRect.left >= vOffLeft + vw;
       if (isBodyHost && anchorOutsideViewport) {
         setPos(null);
-        onClose();
+        lastPosRef.current = null;
         return;
       }
 
@@ -578,7 +576,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         };
       }
     },
-    [open, anchorRef, portalEl, onClose]
+    [open, anchorRef, portalEl]
   );
 
   /* Coalesce observer + viewport events without losing a forced placement
@@ -625,33 +623,33 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
   useEffect(() => {
     if (!open) return;
     const schedule = () => schedulePositionRecalc(true);
-    const onExternalScroll = (event: Event) => {
+    const onViewportScroll = (event: Event) => {
       const target = event.target;
-      // Scrolling the month/year combobox is an internal interaction and must
-      // not close the picker. Any page or ancestor-container scroll closes it,
-      // preventing continuous scroll from repeatedly changing popup scale.
+      // Internal combobox scrolling does not change the trigger's placement.
+      // Page, ancestor and visual-viewport scrolling keep the picker open and
+      // recompute its position against the same anchor instead of closing it.
       if (target instanceof Node && popRef.current?.contains(target)) {
         schedulePositionRecalc(false);
         return;
       }
-      onClose();
+      schedulePositionRecalc(true);
     };
-    window.addEventListener("scroll", onExternalScroll, true);
+    window.addEventListener("scroll", onViewportScroll, true);
     window.addEventListener("resize", schedule);
     window.addEventListener("orientationchange", schedule);
     window.visualViewport?.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("scroll", onExternalScroll);
+    window.visualViewport?.addEventListener("scroll", onViewportScroll);
     return () => {
-      window.removeEventListener("scroll", onExternalScroll, true);
+      window.removeEventListener("scroll", onViewportScroll, true);
       window.removeEventListener("resize", schedule);
       window.removeEventListener("orientationchange", schedule);
       window.visualViewport?.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("scroll", onExternalScroll);
+      window.visualViewport?.removeEventListener("scroll", onViewportScroll);
       if (rafPos.current) cancelAnimationFrame(rafPos.current);
       rafPos.current = null;
       forceNextPositionRecalcRef.current = false;
     };
-  }, [open, schedulePositionRecalc, onClose]);
+  }, [open, schedulePositionRecalc]);
 
   /* outside close + ESC => مثل Cancel عمل کند */
   useEffect(() => {
