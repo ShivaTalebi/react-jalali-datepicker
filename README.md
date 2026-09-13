@@ -6,7 +6,7 @@ Attach it to an `input`, `button`, `span`, or any custom element. The package in
 
 ## Online demo
 
-[Open the live Persian DatePicker demo](https://shivatalebi.github.io/react-jalali-datepicker-test/)
+[Open the live Persian DatePicker demo](https://shivatalebi.github.io/react-persian-datepicker-test/)
 
 The demo includes editable inputs, immediate and Confirm/Cancel selection,
 disabled date ranges, all supported display formats, Span targets and an Input
