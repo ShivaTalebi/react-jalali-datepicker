@@ -16,39 +16,6 @@ Group example. It is built with the published npm package.
 
 ![Flexible Persian DatePicker preview](./docs/assets/calendar-preview.png)
 
-## What's new in v1.2.3
-
-- Month and year dropdowns now close when the user clicks anywhere outside the open combobox
-- Added a clear calendar preview to the npm and GitHub documentation
-
-## What's new in v1.2.1
-
-- Unified width-driven responsive sizing for every calendar instance
-- Fixed inconsistent popup sizes caused by trigger position and vertical space
-- Fixed live-resize race conditions between viewport and element observers
-- Fixed detached popups after responsive reflow moves the trigger off-screen
-- Keep the popup anchored and its scale stable during page, container and mobile-keyboard scrolling
-- Preserved a constant `20rem` width on larger screens and proportional scaling only when the viewport is narrower
-- Removed duplicate mobile media-query scaling so typography, spacing and radius scale exactly once
-- Fixed alignment between weekday headings and all seven day columns
-- Fixed the missing bottom corner radius when Confirm/Cancel buttons are hidden
-
-## Fixed in v1.2.1
-
-- Fixed the missing bottom corner radius when Confirm/Cancel buttons are hidden
-- Fixed alignment between weekday headings and all seven day columns
-- Fixed a seven-column calendar grid regression in the footerless layout
-
-## Added in v1.2.0
-
-- Contextual **Today** shortcut after navigating away from today
-- A different optional label for every instance, or no label at all
-- Responsive positioning and scaling on mobile, tablet and desktop
-- `rem`-based dimensions for consistent flexible scaling
-- Improved month/year combobox and left-to-right year display
-- Reliable selection after clearing an input and live synchronization while typing
-- Inclusive disabled date ranges with built-in styling
-
 ## Features
 
 - Jalali / Persian / Solar Hijri calendar
