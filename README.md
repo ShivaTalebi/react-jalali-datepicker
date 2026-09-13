@@ -4,6 +4,14 @@ A flexible, responsive and self-contained **Jalali (Solar Hijri / Shamsi) datepi
 
 Attach it to an `input`, `button`, `span`, or any custom element. The package includes its own Persian font and styles, supports typed dates and multiple output formats, and does not depend on the host application's UI framework.
 
+## Online demo
+
+[Open the live Persian DatePicker demo](https://shivatalebi.github.io/react-jalali-datepicker-test/)
+
+The demo includes editable inputs, immediate and Confirm/Cancel selection,
+disabled date ranges, all supported display formats, Span targets and an Input
+Group example. It is built with the published npm package.
+
 ## Preview
 
 ![Flexible Persian DatePicker preview](./docs/assets/calendar-preview.png)
