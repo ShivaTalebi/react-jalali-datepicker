@@ -19,7 +19,7 @@ Attach it to an `input`, `button`, `span`, or any custom element. The package in
 - Fixed inconsistent popup sizes caused by trigger position and vertical space
 - Fixed live-resize race conditions between viewport and element observers
 - Fixed detached popups after responsive reflow moves the trigger off-screen
-- Close safely on external page/container scroll while preserving combobox scroll
+- Keep the popup anchored and its scale stable during page, container and mobile-keyboard scrolling
 - Preserved a constant `20rem` width on larger screens and proportional scaling only when the viewport is narrower
 - Removed duplicate mobile media-query scaling so typography, spacing and radius scale exactly once
 - Fixed alignment between weekday headings and all seven day columns

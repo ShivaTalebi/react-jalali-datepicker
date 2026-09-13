@@ -380,12 +380,9 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       const vOffLeft = (vv?.offsetLeft ?? 0) | 0;
       const vOffTop = (vv?.offsetTop ?? 0) | 0;
 
-      // A responsive reflow can move the trigger completely outside the
-      // viewport while the popup is open (especially when the page is already
-      // scrolled). Keeping a scaled popup visible in that situation detaches it
-      // from its trigger and makes it float over unrelated content. Match
-      // common datepicker behavior and close until the trigger is visible and
-      // the consumer opens it again.
+      // Scrolling or opening a mobile keyboard can move the trigger outside
+      // the visual viewport for a moment. Keep the picker logically open but
+      // move its popup off-screen until the trigger is visible again.
       const anchorOutsideViewport =
         aRect.bottom <= vOffTop ||
         aRect.top >= vOffTop + vh ||
@@ -393,7 +390,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         aRect.left >= vOffLeft + vw;
       if (isBodyHost && anchorOutsideViewport) {
         setPos(null);
-        onClose();
+        lastPosRef.current = null;
         return;
       }
 
@@ -415,17 +412,25 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
 
       const hostW = isBodyHost ? vw : (hostEl as HTMLElement).clientWidth;
       const hostH = isBodyHost ? vh : (hostEl as HTMLElement).clientHeight;
+      const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+      const sizingWidth =
+        isBodyHost && coarsePointer && window.screen.width > 0
+          ? window.screen.width
+          : hostW;
+      const sizingHeight =
+        isBodyHost && coarsePointer && window.screen.height > 0
+          ? window.screen.height
+          : hostH;
 
       // Keep the calendar visually identical at every breakpoint. The Zaman
       // The grid is designed around 20rem, so wider anchors must not stretch only
       // the popup shell and create an extra empty strip on the left.
-      const availableWidth = Math.max(0, hostW - 2 * spacing);
+      const availableWidth = Math.max(0, sizingWidth - 2 * spacing);
       const nextWidth = 20 * rootRem;
       setPopupWidth((current) =>
         current === nextWidth ? current : nextWidth
       );
 
-      const rect = popEl?.getBoundingClientRect();
       const approxWidth =
         popEl?.offsetWidth && popEl.offsetWidth > 50
           ? popEl.offsetWidth
@@ -435,18 +440,6 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
           ? popEl.offsetHeight
           : 27.5 * rootRem;
 
-      // Sizing is a pure function of viewport WIDTH, never of the trigger's
-      // position or popup content height. Every picker in the same viewport
-      // therefore has exactly the same visual width, including instances with
-      // different labels or with/without action buttons.
-      const availableHeight = Math.max(0, hostH - 2 * spacing);
-      const viewportScale = Math.max(
-        0.05,
-        Math.min(1, availableWidth / approxWidth)
-      );
-      const visualWidth = approxWidth * viewportScale;
-      const visualHeight = approxHeight * viewportScale;
-
       const anchorTopInHost = isBodyHost ? aTop - vOffTop : aTop;
       const anchorBottomInHost = isBodyHost ? aBottom - vOffTop : aBottom;
       const anchorLeftInHost = isBodyHost ? aLeft - vOffLeft : aLeft;
@@ -455,36 +448,48 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
       // Reserve one gap between anchor/popup and another gap at the viewport
       // edge. Previously the edge gap was not reserved, so resizing could put
       // the scaled popup exactly at (or beyond) the top/bottom edge.
-      const spaceBottom = hostH - anchorBottomInHost - 2 * spacing;
-      const spaceTop = anchorTopInHost - 2 * spacing;
-      const spaceRight = hostW - anchorRightInHost - 2 * spacing;
-      const spaceLeft = anchorLeftInHost - 2 * spacing;
+      const spaceBottom = Math.max(0, hostH - anchorBottomInHost - 2 * spacing);
+      const spaceTop = Math.max(0, anchorTopInHost - 2 * spacing);
+      const spaceRight = Math.max(0, hostW - anchorRightInHost - 2 * spacing);
+      const spaceLeft = Math.max(0, anchorLeftInHost - 2 * spacing);
+
+      // Scale from stable screen/container dimensions. Mobile browser chrome,
+      // the software keyboard and scrolling may change visualViewport.height,
+      // but must never make an already-open calendar grow or shrink.
+      const triggerHeight = Math.max(aRect.height, 2.75 * rootRem);
+      const availableHeight = Math.max(
+        0,
+        coarsePointer && isBodyHost
+          ? sizingHeight * 0.42
+          : sizingHeight - triggerHeight - 3 * spacing
+      );
+      const viewportScale = Math.max(
+        0.05,
+        Math.min(
+          1,
+          availableWidth / approxWidth,
+          availableHeight / approxHeight
+        )
+      );
+      const visualWidth = approxWidth * viewportScale;
+      const visualHeight = approxHeight * viewportScale;
 
       const canBottom = spaceBottom >= visualHeight;
       const canTop = spaceTop >= visualHeight;
       const canRight = spaceRight >= visualWidth;
       const canLeft = spaceLeft >= visualWidth;
-      const heightFits = availableHeight >= visualHeight;
+      const heightFits = hostH - 2 * spacing >= visualHeight;
 
       if (
         forceRecomputePlacement ||
         !placementRef.current ||
         placementRef.current === "fit"
       ) {
-        const candidates: Array<{
-          dir: Placement;
-          space: number;
-          ok: boolean;
-        }> = [
-          { dir: "bottom", space: spaceBottom, ok: canBottom },
-          { dir: "top", space: spaceTop, ok: canTop },
-          { dir: "right", space: spaceRight, ok: canRight && heightFits },
-          { dir: "left", space: spaceLeft, ok: canLeft && heightFits },
-        ];
-        const okOnes = candidates
-          .filter((c) => c.ok)
-          .sort((a, b) => b.space - a.space);
-        placementRef.current = okOnes.length ? okOnes[0].dir : "fit";
+        if (canBottom) placementRef.current = "bottom";
+        else if (canTop) placementRef.current = "top";
+        else if (canRight && heightFits) placementRef.current = "right";
+        else if (canLeft && heightFits) placementRef.current = "left";
+        else placementRef.current = "fit";
       }
 
       const clamp = (v: number, min: number, max: number) =>
@@ -584,7 +589,7 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         };
       }
     },
-    [open, anchorRef, portalEl, onClose]
+    [open, anchorRef, portalEl]
   );
 
   /* Coalesce observer + viewport events without losing a forced placement
@@ -631,38 +636,35 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
   useEffect(() => {
     if (!open) return;
     const schedule = () => schedulePositionRecalc(true);
-    const onExternalScroll = (event: Event) => {
+    const onViewportScroll = (event: Event) => {
       const target = event.target;
-      // Scrolling the month/year combobox is an internal interaction and must
-      // not close the picker. Any page or ancestor-container scroll closes it,
-      // preventing continuous scroll from repeatedly changing popup scale.
       if (target instanceof Node && popRef.current?.contains(target)) {
         schedulePositionRecalc(false);
         return;
       }
-      onClose();
+      schedulePositionRecalc(true);
     };
-    window.addEventListener("scroll", onExternalScroll, true);
+    window.addEventListener("scroll", onViewportScroll, true);
     window.addEventListener("resize", schedule);
     window.addEventListener("orientationchange", schedule);
     window.visualViewport?.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("scroll", onExternalScroll);
+    window.visualViewport?.addEventListener("scroll", onViewportScroll);
     return () => {
-      window.removeEventListener("scroll", onExternalScroll, true);
+      window.removeEventListener("scroll", onViewportScroll, true);
       window.removeEventListener("resize", schedule);
       window.removeEventListener("orientationchange", schedule);
       window.visualViewport?.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("scroll", onExternalScroll);
+      window.visualViewport?.removeEventListener("scroll", onViewportScroll);
       if (rafPos.current) cancelAnimationFrame(rafPos.current);
       rafPos.current = null;
       forceNextPositionRecalcRef.current = false;
     };
-  }, [open, schedulePositionRecalc, onClose]);
+  }, [open, schedulePositionRecalc]);
 
   /* outside close + ESC => مثل Cancel عمل کند */
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: PointerEvent) => {
+    const onDoc = (e: MouseEvent) => {
       const t = e.target as Node;
       const targetElement =
         t.nodeType === Node.ELEMENT_NODE
@@ -697,10 +699,12 @@ function JalaliDatepicker(props: JalaliDatepickerProps) {
         onClose();
       }
     };
-    document.addEventListener("pointerdown", onDoc, true);
+    // A swipe begins with pointerdown on touch screens. Waiting for a completed
+    // click keeps scrolling from being mistaken for an outside dismissal.
+    document.addEventListener("click", onDoc, true);
     window.addEventListener("keydown", onKey, true);
     return () => {
-      document.removeEventListener("pointerdown", onDoc, true);
+      document.removeEventListener("click", onDoc, true);
       window.removeEventListener("keydown", onKey, true);
     };
   }, [open, onClose, anchorRef]);
